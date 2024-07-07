@@ -9,14 +9,12 @@
 #include "cli.h"
 
 
-
-
 // Command array and count
 static Command commands[MAX_COMMANDS];
 static int command_count = 0;
 
 
-void register_command(const char *name, void (*command)(Cli_HandlerTypeDef_t *cli, int argc, char **argv)) {
+void register_command(const char *name, Cli_state_e (*command)(Cli_HandlerTypeDef_t *cli, int argc, char **argv)) {
     if (command_count < MAX_COMMANDS) {
         strncpy(commands[command_count].name, name, sizeof(commands[command_count].name) - 1);
         commands[command_count].command = command;
@@ -59,8 +57,8 @@ void execute_command(Cli_HandlerTypeDef_t *self, const char *line) {
     // Find and execute command
     for (int i = 0; i < command_count; i++) {
         if (strcmp(commands[i].name, argv[0]) == 0) {
-            commands[i].command(self,argc, argv);
-            cli_start(self);  // Print the prompt after executing a command
+            self->state = commands[i].command(self,argc, argv);
+            self->commandRunIndex = i;
             return;
         }
     }
@@ -68,7 +66,26 @@ void execute_command(Cli_HandlerTypeDef_t *self, const char *line) {
     cli_start(self);  // Print the prompt if the command was not found
 }
 
+void cli_run(Cli_HandlerTypeDef_t *self){
+	switch (self->state) {
+			case WAITING:
+				process_input(self);
+				break;
+			case EXECUTING:
+				self->state = commands[self->commandRunIndex].command(self,0,NULL);
+				break;
+			case DONE_EXECUTING:
+				self->state=WAITING;
+				cli_start(self);  // Print the prompt after executing a command
+				break;
+			default:
+				break;
+		}
+}
+
 void process_input(Cli_HandlerTypeDef_t *self) {
+
+
     char c;
     if (!self->read_char(&c)) {
         return; // No input available
@@ -102,6 +119,8 @@ void cli_init(Cli_HandlerTypeDef_t *self, bool (*read_func)(char *), void (*prin
 	self->read_char = read_func;
     self->print_string = print_func;
     self->pos=0;
+    self->commandRunIndex=0;
+    self->state=WAITING;
 }
 
 void cli_start(Cli_HandlerTypeDef_t *self) {

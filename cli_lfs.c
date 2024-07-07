@@ -12,43 +12,180 @@ extern lfs_file_t file;
 extern lfs_dir_t dir;
 char current_path[256] = "/";
 char message[256];
-// Sample command function
-void sample_command(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
-    for (int i = 0; i < argc; i++) {
-    	cli->print_string(argv[i], strlen(argv[i]));
-    	cli->print_string(" ",1);
-    }
-    snprintf(message, sizeof(message),"\r\n");
-    cli->print_string(message,strlen(message));
-    //cli->print_string("\r\n",2);
-}
 
+
+char * get_currentPath(void){
+	return &current_path;
+}
 // Echo command function
-void echo_command(Cli_HandlerTypeDef_t *cli,int argc, char **argv) {
+Cli_state_e echo_command(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
+    if (argc > 4 || strcmp(argv[1],"-h")==0) {
+    	snprintf(message, sizeof(message),"Usage: echo <\"string\"> >>/> <file>\r\n");
+    	cli->print_string(message,strlen(message));
+
+        return DONE_EXECUTING;
+    }
+    char output_str[1024] = {0};  // Adjust buffer size as needed
+    char file_path[512] = {0};    // Buffer for the full file path
+    int append_mode = 0;          // 0: No file operation, 1: Overwrite, 2: Append
+
+    // Check for redirection operators
     for (int i = 1; i < argc; i++) {
-    	cli->print_string(argv[i], strlen(argv[i]));
-        if (i < argc - 1) {
-        	cli->print_string(" ",1);
+        if ((strcmp(argv[i], ">") == 0 || strcmp(argv[i], ">>") == 0) && i + 1 < argc) {
+            const char *redirect_operator = argv[i];
+            const char *path_argument = argv[i + 1];
+
+            // Determine if the path is absolute or relative
+            if (path_argument[0] == '/') {
+                // Absolute path
+                snprintf(file_path, sizeof(file_path), "%s", path_argument);
+            } else {
+                // Relative path
+                snprintf(file_path, sizeof(file_path), "%s/%s", current_path, path_argument);
+            }
+
+            append_mode = (strcmp(redirect_operator, ">>") == 0) ? 2 : 1;
+            argc = i;  // Adjust argc to ignore file path arguments
+            break;
         }
     }
-    snprintf(message, sizeof(message),"\r\n");
-    cli->print_string(message,strlen(message));
-    //cli->print_string("\r\n",2);
+
+    // Create the output string from the command arguments
+    size_t total_len = 0;
+    for (int i = 1; i < argc; i++) {
+        size_t arg_len = strlen(argv[i]);
+        if (total_len + arg_len + 1 < sizeof(output_str)) {
+            strcat(output_str, argv[i]);
+            total_len += arg_len;
+            if (i < argc - 1) {
+                strcat(output_str, " ");
+                total_len += 1;
+            }
+        } else {
+            cli->print_string("Output string too long\r\n", 23);
+            return DONE_EXECUTING;
+        }
+    }
+
+    // Append "\r\n" to the output string
+    if (total_len + 2 < sizeof(output_str)) {
+        strcat(output_str, "\r\n");
+    } else {
+        cli->print_string("Output string too long\r\n", 23);
+        return DONE_EXECUTING;
+    }
+
+    // Handle file operations
+    if (append_mode > 0) {
+        int flags = (append_mode == 1) ? (LFS_O_WRONLY | LFS_O_CREAT | LFS_O_TRUNC) :
+                    (LFS_O_WRONLY | LFS_O_CREAT | LFS_O_APPEND);
+        int err = lfs_file_open(&lfs, &file, file_path, flags);
+        if (err < 0) {
+            cli->print_string("Failed to open file\r\n", 21);
+            return DONE_EXECUTING;
+        }
+
+        lfs_ssize_t res = lfs_file_write(&lfs, &file, output_str, strlen(output_str));
+        if (res < 0) {
+            cli->print_string("Failed to write to file\r\n", 25);
+        }
+
+        lfs_file_close(&lfs, &file);
+    } else {
+        // Print to terminal
+        cli->print_string(output_str, strlen(output_str));
+    }
+
+    return DONE_EXECUTING;
 }
 
-void lfs_ls(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
+Cli_state_e cat_command(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
+    if (argc < 2) {
+        cli->print_string("Usage: cat <filename>\r\n", 23);
+        return DONE_EXECUTING;
+    }
 
-	//int err;
+    char file_path[512] = {0};    // Buffer for the full file path
+
+    // Determine if the path is absolute or relative
+    const char *path_argument = argv[1];
+    if (path_argument[0] == '/') {
+        // Absolute path
+        snprintf(file_path, sizeof(file_path), "%s", path_argument);
+    } else {
+        // Relative path
+        snprintf(file_path, sizeof(file_path), "%s/%s", current_path, path_argument);
+    }
+
+    // Open the file
+    int err = lfs_file_open(&lfs, &file, file_path, LFS_O_RDONLY);
+    if (err < 0) {
+        cli->print_string("Failed to open file\r\n", 21);
+        return DONE_EXECUTING;
+    }
+
+    // Read and print the file content
+    char buffer[128];
+    lfs_ssize_t read_size;
+    while ((read_size = lfs_file_read(&lfs, &file, buffer, sizeof(buffer))) > 0) {
+        cli->print_string(buffer, read_size);
+    }
+
+    if (read_size < 0) {
+        cli->print_string("Failed to read file\r\n", 21);
+    }
+
+    lfs_file_close(&lfs, &file);
+
+    return DONE_EXECUTING;
+}
+
+Cli_state_e rm_command(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
+    if (argc < 2) {
+        cli->print_string("Usage: rm <filename>\r\n", 21);
+        return DONE_EXECUTING;
+    }
+
+    char file_path[512] = {0};  // Buffer for the full file path
+
+    // Determine if the path is absolute or relative
+    const char *path_argument = argv[1];
+    if (path_argument[0] == '/') {
+        // Absolute path
+        snprintf(file_path, sizeof(file_path), "%s", path_argument);
+    } else {
+        // Relative path
+        if (current_path[strlen(current_path) - 1] == '/') {
+            snprintf(file_path, sizeof(file_path), "%s%s", current_path, path_argument);
+        } else {
+            snprintf(file_path, sizeof(file_path), "%s/%s", current_path, path_argument);
+        }
+    }
+
+    // Attempt to remove the file
+    int err = lfs_remove(&lfs, file_path);
+    if (err < 0) {
+    	snprintf(message, sizeof(message),"Failed to delete file\r\n");
+        cli->print_string(message, strlen(message));
+    } else {
+    	snprintf(message, sizeof(message),"File deleted successfully\r\n");
+        cli->print_string(message, strlen(message));
+    }
+    return DONE_EXECUTING;
+}
+
+Cli_state_e lfs_ls(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
+
     int err = lfs_dir_open(&lfs, &dir, current_path);
     if (err) {
-        return;
+        return DONE_EXECUTING;
     }
 
     struct lfs_info info;
     while (true) {
         int res = lfs_dir_read(&lfs, &dir, &info);
         if (res < 0) {
-            return;
+            return DONE_EXECUTING;
         }
 
         if (res == 0) {
@@ -64,28 +201,25 @@ void lfs_ls(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
         static const char *prefixes[] = {"", "K", "M", "G"};
         for (int i = sizeof(prefixes)/sizeof(prefixes[0])-1; i >= 0; i--) {
             if (info.size >= (1 << 10*i)-1) {
-                //printf("%*lu%sB ", 4-(i != 0), info.size >> 10*i, prefixes[i]);
                 snprintf(message, sizeof(message),"%*lu%sB ", 4-(i != 0), info.size >> 10*i, prefixes[i]);
                 cli->print_string(message, strlen(message));               break;
             }
         }
 
-        //printf("%s\r\n", info.name);
         snprintf(message, sizeof(message),"%s\r\n", info.name);
         cli->print_string(message, strlen(message));
     }
 
     err = lfs_dir_close(&lfs, &dir);
     if (err) {
-        return;
+        return DONE_EXECUTING;
     }
 
-    return;
+    return DONE_EXECUTING;
 }
 
-
 // Helper function to normalize the path
-void normalize_path(char *path) {
+static void normalize_path(char *path) {
     char temp[256];
     char *p = path, *q = temp;
     int len;
@@ -129,12 +263,12 @@ void normalize_path(char *path) {
 }
 
 // Function to remove a directory
-void rmdir(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
+Cli_state_e rmdir(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
     if (argc < 2) {
     	snprintf(message, sizeof(message),"Usage: rmdir <directory>\r\n");
     	cli->print_string(message,strlen(message));
-    	//cli->print_string("Usage: rmdir <directory>\r\n", strlen("Usage: rmdir <directory>\r\n"));
-        return;
+
+        return DONE_EXECUTING;
     }
 
     const char *directory = argv[1];
@@ -156,21 +290,19 @@ void rmdir(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
     if (lfs_remove(&lfs, full_path) < 0) {
     	snprintf(message, sizeof(message),"Failed to remove directory.\r\n");
     	cli->print_string(message,strlen(message));
-    	//cli->print_string("Failed to remove directory.\r\n", strlen("Failed to remove directory.\r\n"));
-        return;
+        return DONE_EXECUTING;
     }
     snprintf(message, sizeof(message),"Directory removed.\r\n");
     cli->print_string(message,strlen(message));
-    //cli->print_string("Directory removed.\r\n", strlen("Directory removed.\r\n"));
+    return DONE_EXECUTING;
 }
 
 // Function to make a directory
-void mkdir(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
+Cli_state_e mkdir(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
     if (argc < 2) {
         snprintf(message, sizeof(message),"Usage: mkdir <directory>\r\n");
         cli->print_string(message,strlen(message));
-    	//cli->print_string("Usage: mkdir <directory>\r\n", strlen("Usage: mkdir <directory>\r\n"));
-        return;
+        return DONE_EXECUTING;
     }
 
     const char *directory = argv[1];
@@ -193,19 +325,20 @@ void mkdir(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
         snprintf(message, sizeof(message),"Failed to make directory.\r\n");
         cli->print_string(message,strlen(message));
     	//cli->print_string("Failed to make directory.\r\n", strlen("Failed to make directory.\r\n"));
-        return;
+        return DONE_EXECUTING;
     }
     snprintf(message, sizeof(message),"Directory created.\r\n");
     cli->print_string(message,strlen(message));
-    //cli->print_string("Directory created.\r\n", strlen("Directory created.\r\n"));
+
+    return DONE_EXECUTING;
 }
 
-void change_dir(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
+Cli_state_e change_dir(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
     if (argc < 2) {
         snprintf(message, sizeof(message),"Usage: cd <path>\r\n");
         cli->print_string(message,strlen(message));
     	//cli->print_string("Usage: change_dir <path>\r\n",strlen("Usage: change_dir <path>\r\n"));
-        return;
+        return DONE_EXECUTING;
     }
 
     const char *path = argv[1];
@@ -229,7 +362,7 @@ void change_dir(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
         snprintf(message, sizeof(message),"Error opening directory '%s': %d\r\n", new_path, err);
         cli->print_string(message,strlen(message));
         //printf("Error opening directory '%s': %d\r\n", new_path, err);
-        return;
+        return DONE_EXECUTING;
     }
 
     // Close the directory (just checking its existence)
@@ -239,7 +372,8 @@ void change_dir(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
     strncpy(current_path, new_path, sizeof(current_path) - 1);
     current_path[sizeof(current_path) - 1] = '\0';
 
-    snprintf(message, sizeof(message),"Changed directory to '%s'\r\n");
+    snprintf(message, sizeof(message),"Changed directory to '%s'\r\n",current_path);
     cli->print_string(message,strlen(message));
     //printf("Changed directory to '%s'\r\n", current_path);
+    return DONE_EXECUTING;
 }

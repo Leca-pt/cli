@@ -11,20 +11,22 @@
 #include "cli.h"
 #include "lfs.h"
 
-// Sample command function
-void sample_command(Cli_HandlerTypeDef_t *cli, int argc, char **argv);
 
+char * get_currentPath(void);
 // Echo command function
-void echo_command(Cli_HandlerTypeDef_t *cli,int argc, char **argv);
+Cli_state_e echo_command(Cli_HandlerTypeDef_t *cli,int argc, char **argv);
 
-void lfs_ls(Cli_HandlerTypeDef_t *cli, int argc, char **argv);
+Cli_state_e cat_command(Cli_HandlerTypeDef_t *cli, int argc, char **argv);
 
-// Helper function to normalize the path
-void normalize_path(char *path);
+Cli_state_e rm_command(Cli_HandlerTypeDef_t *cli, int argc, char **argv);
+
+Cli_state_e lfs_ls(Cli_HandlerTypeDef_t *cli, int argc, char **argv);
+
 // Function to remove a directory
-void rmdir(Cli_HandlerTypeDef_t *cli, int argc, char **argv);
+Cli_state_e rmdir(Cli_HandlerTypeDef_t *cli, int argc, char **argv);
 // Function to make a directory
-void mkdir(Cli_HandlerTypeDef_t *cli, int argc, char **argv);
+Cli_state_e mkdir(Cli_HandlerTypeDef_t *cli, int argc, char **argv);
 
-void change_dir(Cli_HandlerTypeDef_t *cli, int argc, char **argv);
+Cli_state_e change_dir(Cli_HandlerTypeDef_t *cli, int argc, char **argv);
+
 #endif /* CLI_LFS_H_ */

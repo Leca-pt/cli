@@ -11,6 +11,7 @@
 #include "cli.h"
 #include "lfs.h"
 
+#define COPY_BUFFER_SIZE 64
 
 char * get_currentPath(void);
 // Echo command function
@@ -28,5 +29,11 @@ Cli_state_e rmdir(Cli_HandlerTypeDef_t *cli, int argc, char **argv);
 Cli_state_e mkdir(Cli_HandlerTypeDef_t *cli, int argc, char **argv);
 
 Cli_state_e change_dir(Cli_HandlerTypeDef_t *cli, int argc, char **argv);
+
+Cli_state_e create_new_file(Cli_HandlerTypeDef_t *cli, int argc, char **argv);
+
+Cli_state_e move_file(Cli_HandlerTypeDef_t *cli, int argc, char **argv);
+
+Cli_state_e copy_file(Cli_HandlerTypeDef_t *cli, int argc, char **argv);
 
 #endif /* CLI_LFS_H_ */

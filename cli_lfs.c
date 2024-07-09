@@ -8,14 +8,12 @@
 #include "cli_lfs.h"
 
 extern lfs_t lfs;
-extern lfs_file_t file;
-extern lfs_dir_t dir;
 char current_path[256] = "/";
 char message[256];
 
 
 char * get_currentPath(void){
-	return &current_path;
+	return &current_path[0];
 }
 // Echo command function
 Cli_state_e echo_command(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
@@ -77,6 +75,7 @@ Cli_state_e echo_command(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
 
     // Handle file operations
     if (append_mode > 0) {
+    	lfs_file_t file;
         int flags = (append_mode == 1) ? (LFS_O_WRONLY | LFS_O_CREAT | LFS_O_TRUNC) :
                     (LFS_O_WRONLY | LFS_O_CREAT | LFS_O_APPEND);
         int err = lfs_file_open(&lfs, &file, file_path, flags);
@@ -104,7 +103,7 @@ Cli_state_e cat_command(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
         cli->print_string("Usage: cat <filename>\r\n", 23);
         return DONE_EXECUTING;
     }
-
+    lfs_file_t file;
     char file_path[512] = {0};    // Buffer for the full file path
 
     // Determine if the path is absolute or relative
@@ -176,6 +175,7 @@ Cli_state_e rm_command(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
 
 Cli_state_e lfs_ls(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
 
+	lfs_dir_t dir;
     int err = lfs_dir_open(&lfs, &dir, current_path);
     if (err) {
         return DONE_EXECUTING;
@@ -202,7 +202,8 @@ Cli_state_e lfs_ls(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
         for (int i = sizeof(prefixes)/sizeof(prefixes[0])-1; i >= 0; i--) {
             if (info.size >= (1 << 10*i)-1) {
                 snprintf(message, sizeof(message),"%*lu%sB ", 4-(i != 0), info.size >> 10*i, prefixes[i]);
-                cli->print_string(message, strlen(message));               break;
+                cli->print_string(message, strlen(message));
+               break;
             }
         }
 
@@ -341,6 +342,7 @@ Cli_state_e change_dir(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
         return DONE_EXECUTING;
     }
 
+    lfs_dir_t dir;
     const char *path = argv[1];
     char new_path[256];
 
@@ -375,5 +377,168 @@ Cli_state_e change_dir(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
     snprintf(message, sizeof(message),"Changed directory to '%s'\r\n",current_path);
     cli->print_string(message,strlen(message));
     //printf("Changed directory to '%s'\r\n", current_path);
+    return DONE_EXECUTING;
+}
+
+// Function to create a new file using LittleFS
+Cli_state_e create_new_file(Cli_HandlerTypeDef_t *cli, int argc, char **argv)  {
+    if (argc != 2) {
+        cli->print_string("Usage: touch <filename>\r\n", 25);
+        return DONE_EXECUTING;
+    }
+
+    char full_path[256];
+    const char *filename = argv[1];
+
+    // Check if the provided path is absolute or relative
+    if (filename[0] == '/') {
+        // Absolute path
+        strncpy(full_path, filename, 256);
+    } else {
+        // Relative path
+        if (current_path[strlen(current_path) - 1] == '/') {
+            snprintf(full_path, 256, "%s%s", current_path, filename);
+        } else {
+            snprintf(full_path, 256, "%s/%s", current_path, filename);
+        }
+    }
+
+    lfs_file_t file;
+    int err = lfs_file_open(&lfs, &file, full_path, LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL);
+    if (err) {
+        cli->print_string("Error creating file.\r\n", 22);
+        return DONE_EXECUTING;
+    }
+
+    lfs_file_close(&lfs, &file);
+    cli->print_string("File created successfully.\r\n", 28);
+    return DONE_EXECUTING;
+}
+
+// Function to move a file using LittleFS
+Cli_state_e move_file(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
+    if (argc != 3) {
+        cli->print_string("Usage: mv <source> <destination>\r\n", 34);
+        return DONE_EXECUTING;
+    }
+
+    char source_path[256];
+    char destination_path[256];
+    const char *source = argv[1];
+    const char *destination = argv[2];
+
+    // Handle source path
+    if (source[0] == '/') {
+        // Absolute path
+        //strncpy(source_path, source, 256);
+        snprintf(source_path, sizeof(source_path), "%s", source);
+    } else {
+        // Relative path
+        if (current_path[strlen(current_path) - 1] == '/') {
+            snprintf(source_path, 256, "%s%s", current_path, source);
+        } else {
+            snprintf(source_path, 256, "%s/%s", current_path, source);
+        }
+    }
+
+    // Handle destination path
+    if (destination[0] == '/') {
+        // Absolute path
+        strncpy(destination_path, destination, 256);
+    } else {
+        // Relative path
+        if (current_path[strlen(current_path) - 1] == '/') {
+            snprintf(destination_path, 256, "%s%s", current_path, destination);
+        } else {
+            snprintf(destination_path, 256, "%s/%s", current_path, destination);
+        }
+    }
+
+    // Perform the file move
+    int err = lfs_rename(&lfs, source_path, destination_path);
+    if (err) {
+        cli->print_string("Error moving file.\r\n", 20);
+        return DONE_EXECUTING;
+    }
+
+    cli->print_string("File moved successfully.\r\n", 26);
+    return DONE_EXECUTING;
+}
+
+// Function to copy a file using LittleFS
+Cli_state_e copy_file(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
+    if (argc != 3) {
+        cli->print_string("Usage: cp <source> <destination>\r\n", 34);
+        return DONE_EXECUTING;
+    }
+
+    char source_path[256];
+    char destination_path[256];
+    const char *source = argv[1];
+    const char *destination = argv[2];
+
+    // Handle source path
+    if (source[0] == '/') {
+        // Absolute path
+        strncpy(source_path, source, 256);
+    } else {
+        // Relative path
+        if (current_path[strlen(current_path) - 1] == '/') {
+            snprintf(source_path, 256, "%s%s", current_path, source);
+        } else {
+            snprintf(source_path, 256, "%s/%s", current_path, source);
+        }
+    }
+
+    // Handle destination path
+    if (destination[0] == '/') {
+        // Absolute path
+        strncpy(destination_path, destination, 256);
+    } else {
+        // Relative path
+        if (current_path[strlen(current_path) - 1] == '/') {
+            snprintf(destination_path, 256, "%s%s", current_path, destination);
+        } else {
+            snprintf(destination_path, 256, "%s/%s", current_path, destination);
+        }
+    }
+
+    // Open source file for reading
+    lfs_file_t src_file;
+    int err = lfs_file_open(&lfs, &src_file, source_path, LFS_O_RDONLY);
+    if (err) {
+        cli->print_string("Error opening source file.\r\n", 28);
+        return DONE_EXECUTING;
+    }
+
+    // Open destination file for writing
+    lfs_file_t dest_file;
+    err = lfs_file_open(&lfs, &dest_file, destination_path, LFS_O_WRONLY | LFS_O_CREAT | LFS_O_TRUNC);
+    if (err) {
+        cli->print_string("Error creating destination file.\r\n", 34);
+        lfs_file_close(&lfs, &src_file);
+        return DONE_EXECUTING;
+    }
+
+    // Buffer for copying data
+    char buffer[128];
+    int bytes_read, bytes_written;
+
+    // Copy data from source to destination
+    while ((bytes_read = lfs_file_read(&lfs, &src_file, buffer, sizeof(buffer))) > 0) {
+        bytes_written = lfs_file_write(&lfs, &dest_file, buffer, bytes_read);
+        if (bytes_written < 0) {
+            cli->print_string("Error writing to destination file.\r\n", 36);
+            lfs_file_close(&lfs, &src_file);
+            lfs_file_close(&lfs, &dest_file);
+            return DONE_EXECUTING;
+        }
+    }
+
+    // Close files
+    lfs_file_close(&lfs, &src_file);
+    lfs_file_close(&lfs, &dest_file);
+
+    cli->print_string("File copied successfully.\r\n", 27);
     return DONE_EXECUTING;
 }

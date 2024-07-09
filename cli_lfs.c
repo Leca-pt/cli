@@ -15,6 +15,12 @@ char message[256];
 char * get_currentPath(void){
 	return &current_path[0];
 }
+
+Cli_state_e pwd_command(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
+    cli->print_string(current_path, strlen(current_path));
+    cli->print_string("\r\n", 2);
+    return DONE_EXECUTING;
+}
 // Echo command function
 Cli_state_e echo_command(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
     if (argc > 4 || strcmp(argv[1],"-h")==0) {

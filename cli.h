@@ -53,6 +53,8 @@ typedef enum{
 }Cli_style_e;
 
 
+
+
 // Function pointers for reading a character and printing a string
 typedef bool (*read_char)(char *data);
 typedef void (*print_string)(char *data, uint16_t size);
@@ -89,6 +91,7 @@ char * cli_getUserInput(Cli_HandlerTypeDef_t *self);
 bool cli_escape(Cli_HandlerTypeDef_t *self);
 bool cli_ctrlC(Cli_HandlerTypeDef_t *self);
 int cli_printf(Cli_HandlerTypeDef_t *self,const char * format, ...);
+void cli_print(Cli_HandlerTypeDef_t *self,char *data, uint16_t size);
 void cli_hideCursor(Cli_HandlerTypeDef_t *self);
 void cli_showCursor(Cli_HandlerTypeDef_t *self);
 void cli_setStyle(Cli_HandlerTypeDef_t *self, Cli_style_e code);

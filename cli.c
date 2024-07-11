@@ -102,6 +102,10 @@ int cli_printf(Cli_HandlerTypeDef_t *self,const char * format, ...){
 	return result; // Return the number of characters written (excluding null terminator)
 }
 
+void cli_print(Cli_HandlerTypeDef_t *self,char *data, uint16_t size){
+	self->print_string(data, size);
+}
+
 void cli_hideCursor(Cli_HandlerTypeDef_t *self){
 	self->print_string("\033[?25l", strlen("\033[?25l"));
 }
@@ -114,6 +118,7 @@ void cli_showCursor(Cli_HandlerTypeDef_t *self){
 void cli_setStyle(Cli_HandlerTypeDef_t *self, Cli_style_e code){
 	cli_printf(self, "\033[%dm",code);
 }
+
 
 void execute_command(Cli_HandlerTypeDef_t *self, const char *line) {
     char args[MAX_ARGS][MAX_ARG_LEN];

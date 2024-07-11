@@ -9,7 +9,6 @@
 
 extern lfs_t lfs;
 char current_path[256] = "/";
-char message[256];
 
 // Helper function to normalize the path
 static void normalize_path(char *path);
@@ -21,16 +20,14 @@ char * get_currentPath(void){
 
 //Function to get print current path
 Cli_state_e pwd_command(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
-    cli->print_string(current_path, strlen(current_path));
-    cli->print_string("\r\n", 2);
+	cli_printf(cli,"%s\r\n", current_path);
     return DONE_EXECUTING;
 }
 
 // Echo command function
 Cli_state_e echo_command(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
     if (argc > 4 || strcmp(argv[1],"-h")==0) {
-    	snprintf(message, sizeof(message),"Usage: echo <\"string\"> >>/> <file>\r\n");
-    	cli->print_string(message,strlen(message));
+    	cli_printf(cli,"Usage: echo <\"string\"> >>/> <file>\r\n");
 
         return DONE_EXECUTING;
     }
@@ -71,7 +68,7 @@ Cli_state_e echo_command(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
                 total_len += 1;
             }
         } else {
-            cli->print_string("Output string too long\r\n", 23);
+        	cli_printf(cli,"Output string too long\r\n");
             return DONE_EXECUTING;
         }
     }
@@ -80,7 +77,7 @@ Cli_state_e echo_command(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
     if (total_len + 2 < sizeof(output_str)) {
         strcat(output_str, "\r\n");
     } else {
-        cli->print_string("Output string too long\r\n", 23);
+    	cli_printf(cli,"Output string too long\r\n");
         return DONE_EXECUTING;
     }
 
@@ -91,19 +88,19 @@ Cli_state_e echo_command(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
                     (LFS_O_WRONLY | LFS_O_CREAT | LFS_O_APPEND);
         int err = lfs_file_open(&lfs, &file, file_path, flags);
         if (err < 0) {
-            cli->print_string("Failed to open file\r\n", 21);
+        	cli_printf(cli,"Failed to open file\r\n");
             return DONE_EXECUTING;
         }
 
         lfs_ssize_t res = lfs_file_write(&lfs, &file, output_str, strlen(output_str));
         if (res < 0) {
-            cli->print_string("Failed to write to file\r\n", 25);
+        	cli_printf(cli,"Failed to write to file\r\n");
         }
 
         lfs_file_close(&lfs, &file);
     } else {
         // Print to terminal
-        cli->print_string(output_str, strlen(output_str));
+        cli_printf(cli,"%s",output_str);
     }
 
     return DONE_EXECUTING;
@@ -112,7 +109,7 @@ Cli_state_e echo_command(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
 // Function to print a file
 Cli_state_e cat_command(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
     if (argc < 2) {
-        cli->print_string("Usage: cat <filename>\r\n", 23);
+    	cli_printf(cli,"Usage: cat <filename>\r\n");
         return DONE_EXECUTING;
     }
     lfs_file_t file;
@@ -131,7 +128,7 @@ Cli_state_e cat_command(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
     // Open the file
     int err = lfs_file_open(&lfs, &file, file_path, LFS_O_RDONLY);
     if (err < 0) {
-        cli->print_string("Failed to open file\r\n", 21);
+    	cli_printf(cli,"Failed to open file\r\n");
         return DONE_EXECUTING;
     }
 
@@ -139,11 +136,11 @@ Cli_state_e cat_command(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
     char buffer[128];
     lfs_ssize_t read_size;
     while ((read_size = lfs_file_read(&lfs, &file, buffer, sizeof(buffer))) > 0) {
-        cli->print_string(buffer, read_size);
+        cli_print(cli, buffer, read_size);
     }
 
     if (read_size < 0) {
-        cli->print_string("Failed to read file\r\n", 21);
+    	cli_printf(cli,"Failed to read file\r\n");
     }
 
     lfs_file_close(&lfs, &file);
@@ -154,7 +151,7 @@ Cli_state_e cat_command(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
 // Function to remove a file
 Cli_state_e rm_command(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
     if (argc < 2) {
-        cli->print_string("Usage: rm <filename>\r\n", 21);
+    	cli_printf(cli,"Usage: rm <filename>\r\n");
         return DONE_EXECUTING;
     }
 
@@ -177,11 +174,9 @@ Cli_state_e rm_command(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
     // Attempt to remove the file
     int err = lfs_remove(&lfs, file_path);
     if (err < 0) {
-    	snprintf(message, sizeof(message),"Failed to delete file\r\n");
-        cli->print_string(message, strlen(message));
+    	cli_printf(cli,"Failed to delete file\r\n");
     } else {
-    	snprintf(message, sizeof(message),"File deleted successfully\r\n");
-        cli->print_string(message, strlen(message));
+    	cli_printf(cli,"File deleted successfully\r\n");
     }
     return DONE_EXECUTING;
 }
@@ -207,22 +202,20 @@ Cli_state_e lfs_ls(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
         }
 
         switch (info.type) {
-            case LFS_TYPE_REG: printf("reg "); break;
-            case LFS_TYPE_DIR: printf("dir "); break;
-            default:           printf("?   "); break;
+            case LFS_TYPE_REG: cli_printf(cli,"reg "); break;
+            case LFS_TYPE_DIR: cli_printf(cli,"dir "); break;
+            default:           cli_printf(cli,"?   "); break;
         }
 
         static const char *prefixes[] = {"", "K", "M", "G"};
         for (int i = sizeof(prefixes)/sizeof(prefixes[0])-1; i >= 0; i--) {
             if (info.size >= (1 << 10*i)-1) {
-                snprintf(message, sizeof(message),"%*lu%sB ", 4-(i != 0), info.size >> 10*i, prefixes[i]);
-                cli->print_string(message, strlen(message));
+            	cli_printf(cli,"%*lu%sB ", 4-(i != 0), info.size >> 10*i, prefixes[i]);
                break;
             }
         }
 
-        snprintf(message, sizeof(message),"%s\r\n", info.name);
-        cli->print_string(message, strlen(message));
+        cli_printf(cli,"%s\r\n", info.name);
     }
 
     err = lfs_dir_close(&lfs, &dir);
@@ -236,8 +229,7 @@ Cli_state_e lfs_ls(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
 // Function to remove a directory
 Cli_state_e rmdir(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
     if (argc < 2) {
-    	snprintf(message, sizeof(message),"Usage: rmdir <directory>\r\n");
-    	cli->print_string(message,strlen(message));
+    	cli_printf(cli,"Usage: rmdir <directory>\r\n");
 
         return DONE_EXECUTING;
     }
@@ -259,20 +251,17 @@ Cli_state_e rmdir(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
 
     // Remove directory in LittleFS
     if (lfs_remove(&lfs, full_path) < 0) {
-    	snprintf(message, sizeof(message),"Failed to remove directory.\r\n");
-    	cli->print_string(message,strlen(message));
+    	cli_printf(cli,"Failed to remove directory.\r\n");
         return DONE_EXECUTING;
     }
-    snprintf(message, sizeof(message),"Directory removed.\r\n");
-    cli->print_string(message,strlen(message));
+    cli_printf(cli,"Directory removed.\r\n");
     return DONE_EXECUTING;
 }
 
 // Function to make a directory
 Cli_state_e mkdir(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
     if (argc < 2) {
-        snprintf(message, sizeof(message),"Usage: mkdir <directory>\r\n");
-        cli->print_string(message,strlen(message));
+    	cli_printf(cli,"Usage: mkdir <directory>\r\n");
         return DONE_EXECUTING;
     }
 
@@ -293,22 +282,17 @@ Cli_state_e mkdir(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
 
     // Make directory in LittleFS
     if (lfs_mkdir(&lfs, full_path) < 0) {
-        snprintf(message, sizeof(message),"Failed to make directory.\r\n");
-        cli->print_string(message,strlen(message));
-    	//cli->print_string("Failed to make directory.\r\n", strlen("Failed to make directory.\r\n"));
+    	cli_printf(cli,"Failed to make directory.\r\n");
         return DONE_EXECUTING;
     }
-    snprintf(message, sizeof(message),"Directory created.\r\n");
-    cli->print_string(message,strlen(message));
+    cli_printf(cli,"Directory created.\r\n");
 
     return DONE_EXECUTING;
 }
 
 Cli_state_e change_dir(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
     if (argc < 2) {
-        snprintf(message, sizeof(message),"Usage: cd <path>\r\n");
-        cli->print_string(message,strlen(message));
-    	//cli->print_string("Usage: change_dir <path>\r\n",strlen("Usage: change_dir <path>\r\n"));
+    	cli_printf(cli,"Usage: cd <path>\r\n");
         return DONE_EXECUTING;
     }
 
@@ -331,8 +315,7 @@ Cli_state_e change_dir(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
     // Check if the directory exists
     int err = lfs_dir_open(&lfs, &dir, new_path);
     if (err) {
-        snprintf(message, sizeof(message),"Error opening directory '%s': %d\r\n", new_path, err);
-        cli->print_string(message,strlen(message));
+    	cli_printf(cli,"Error opening directory '%s': %d\r\n", new_path, err);
         //printf("Error opening directory '%s': %d\r\n", new_path, err);
         return DONE_EXECUTING;
     }
@@ -344,8 +327,7 @@ Cli_state_e change_dir(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
     strncpy(current_path, new_path, sizeof(current_path) - 1);
     current_path[sizeof(current_path) - 1] = '\0';
 
-    snprintf(message, sizeof(message),"Changed directory to '%s'\r\n",current_path);
-    cli->print_string(message,strlen(message));
+    cli_printf(cli,"Changed directory to '%s'\r\n",current_path);
     //printf("Changed directory to '%s'\r\n", current_path);
     return DONE_EXECUTING;
 }
@@ -353,7 +335,7 @@ Cli_state_e change_dir(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
 // Function to create a new file using LittleFS
 Cli_state_e create_new_file(Cli_HandlerTypeDef_t *cli, int argc, char **argv)  {
     if (argc != 2) {
-        cli->print_string("Usage: touch <filename>\r\n", 25);
+    	cli_printf(cli,"Usage: touch <filename>\r\n");
         return DONE_EXECUTING;
     }
 
@@ -376,19 +358,19 @@ Cli_state_e create_new_file(Cli_HandlerTypeDef_t *cli, int argc, char **argv)  {
     lfs_file_t file;
     int err = lfs_file_open(&lfs, &file, full_path, LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL);
     if (err) {
-        cli->print_string("Error creating file.\r\n", 22);
+        cli_printf(cli,"Error creating file.\r\n");
         return DONE_EXECUTING;
     }
 
     lfs_file_close(&lfs, &file);
-    cli->print_string("File created successfully.\r\n", 28);
+    cli_printf(cli,"File created successfully.\r\n");
     return DONE_EXECUTING;
 }
 
 // Function to move a file using LittleFS
 Cli_state_e move_file(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
     if (argc != 3) {
-        cli->print_string("Usage: mv <source> <destination>\r\n", 34);
+    	cli_printf(cli,"Usage: mv <source> <destination>\r\n");
         return DONE_EXECUTING;
     }
 
@@ -427,18 +409,18 @@ Cli_state_e move_file(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
     // Perform the file move
     int err = lfs_rename(&lfs, source_path, destination_path);
     if (err) {
-        cli->print_string("Error moving file.\r\n", 20);
+    	cli_printf(cli,"Error moving file.\r\n");
         return DONE_EXECUTING;
     }
 
-    cli->print_string("File moved successfully.\r\n", 26);
+    cli_printf(cli,"File moved successfully.\r\n");
     return DONE_EXECUTING;
 }
 
 // Function to copy a file using LittleFS
 Cli_state_e copy_file(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
     if (argc != 3) {
-        cli->print_string("Usage: cp <source> <destination>\r\n", 34);
+    	cli_printf(cli,"Usage: cp <source> <destination>\r\n");
         return DONE_EXECUTING;
     }
 
@@ -477,7 +459,7 @@ Cli_state_e copy_file(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
     lfs_file_t src_file;
     int err = lfs_file_open(&lfs, &src_file, source_path, LFS_O_RDONLY);
     if (err) {
-        cli->print_string("Error opening source file.\r\n", 28);
+    	cli_printf(cli,"Error opening source file.\r\n");
         return DONE_EXECUTING;
     }
 
@@ -485,7 +467,7 @@ Cli_state_e copy_file(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
     lfs_file_t dest_file;
     err = lfs_file_open(&lfs, &dest_file, destination_path, LFS_O_WRONLY | LFS_O_CREAT | LFS_O_TRUNC);
     if (err) {
-        cli->print_string("Error creating destination file.\r\n", 34);
+    	cli_printf(cli,"Error creating destination file.\r\n");
         lfs_file_close(&lfs, &src_file);
         return DONE_EXECUTING;
     }
@@ -498,7 +480,7 @@ Cli_state_e copy_file(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
     while ((bytes_read = lfs_file_read(&lfs, &src_file, buffer, sizeof(buffer))) > 0) {
         bytes_written = lfs_file_write(&lfs, &dest_file, buffer, bytes_read);
         if (bytes_written < 0) {
-            cli->print_string("Error writing to destination file.\r\n", 36);
+        	cli_printf(cli,"Error writing to destination file.\r\n");
             lfs_file_close(&lfs, &src_file);
             lfs_file_close(&lfs, &dest_file);
             return DONE_EXECUTING;
@@ -509,7 +491,7 @@ Cli_state_e copy_file(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
     lfs_file_close(&lfs, &src_file);
     lfs_file_close(&lfs, &dest_file);
 
-    cli->print_string("File copied successfully.\r\n", 27);
+    cli_printf(cli,"File copied successfully.\r\n");
     return DONE_EXECUTING;
 }
 

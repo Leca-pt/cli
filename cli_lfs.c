@@ -11,16 +11,21 @@ extern lfs_t lfs;
 char current_path[256] = "/";
 char message[256];
 
+// Helper function to normalize the path
+static void normalize_path(char *path);
+
 
 char * get_currentPath(void){
 	return &current_path[0];
 }
 
+//Function to get print current path
 Cli_state_e pwd_command(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
     cli->print_string(current_path, strlen(current_path));
     cli->print_string("\r\n", 2);
     return DONE_EXECUTING;
 }
+
 // Echo command function
 Cli_state_e echo_command(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
     if (argc > 4 || strcmp(argv[1],"-h")==0) {
@@ -104,6 +109,7 @@ Cli_state_e echo_command(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
     return DONE_EXECUTING;
 }
 
+// Function to print a file
 Cli_state_e cat_command(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
     if (argc < 2) {
         cli->print_string("Usage: cat <filename>\r\n", 23);
@@ -145,6 +151,7 @@ Cli_state_e cat_command(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
     return DONE_EXECUTING;
 }
 
+// Function to remove a file
 Cli_state_e rm_command(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
     if (argc < 2) {
         cli->print_string("Usage: rm <filename>\r\n", 21);
@@ -179,6 +186,7 @@ Cli_state_e rm_command(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
     return DONE_EXECUTING;
 }
 
+// Function to list a directory
 Cli_state_e lfs_ls(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
 
 	lfs_dir_t dir;
@@ -223,50 +231,6 @@ Cli_state_e lfs_ls(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
     }
 
     return DONE_EXECUTING;
-}
-
-// Helper function to normalize the path
-static void normalize_path(char *path) {
-    char temp[256];
-    char *p = path, *q = temp;
-    int len;
-
-    while (*p) {
-        if (*p == '/') {
-            if (*(p + 1) == '/') {
-                // Skip duplicate slashes
-                p++;
-                continue;
-            } else if (*(p + 1) == '.') {
-                if (*(p + 2) == '/') {
-                    // Skip "./"
-                    p += 2;
-                    continue;
-                } else if (*(p + 2) == '.' && (*(p + 3) == '/' || *(p + 3) == '\0')) {
-                    // Handle "../"
-                    p += 3;
-                    if (q > temp) {
-                        // Move up one level in the path
-                        q--;
-                        while (q > temp && *(q - 1) != '/') {
-                            q--;
-                        }
-                    }
-                    continue;
-                }
-            }
-        }
-        *q++ = *p++;
-    }
-    *q = '\0';
-
-    // If the path ends with a '/', remove it (unless it's the root "/")
-    len = strlen(temp);
-    if (len > 1 && temp[len - 1] == '/') {
-        temp[len - 1] = '\0';
-    }
-
-    strcpy(path, temp);
 }
 
 // Function to remove a directory
@@ -547,4 +511,49 @@ Cli_state_e copy_file(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
 
     cli->print_string("File copied successfully.\r\n", 27);
     return DONE_EXECUTING;
+}
+
+
+// Helper function to normalize the path
+static void normalize_path(char *path) {
+    char temp[256];
+    char *p = path, *q = temp;
+    int len;
+
+    while (*p) {
+        if (*p == '/') {
+            if (*(p + 1) == '/') {
+                // Skip duplicate slashes
+                p++;
+                continue;
+            } else if (*(p + 1) == '.') {
+                if (*(p + 2) == '/') {
+                    // Skip "./"
+                    p += 2;
+                    continue;
+                } else if (*(p + 2) == '.' && (*(p + 3) == '/' || *(p + 3) == '\0')) {
+                    // Handle "../"
+                    p += 3;
+                    if (q > temp) {
+                        // Move up one level in the path
+                        q--;
+                        while (q > temp && *(q - 1) != '/') {
+                            q--;
+                        }
+                    }
+                    continue;
+                }
+            }
+        }
+        *q++ = *p++;
+    }
+    *q = '\0';
+
+    // If the path ends with a '/', remove it (unless it's the root "/")
+    len = strlen(temp);
+    if (len > 1 && temp[len - 1] == '/') {
+        temp[len - 1] = '\0';
+    }
+
+    strcpy(path, temp);
 }

@@ -10,6 +10,7 @@
 
 #include <stdint.h>
 #include <stdio.h>
+#include <stdarg.h>
 #include <string.h>
 #include <stdbool.h>
 
@@ -23,6 +24,7 @@
 
 typedef enum{
 	WAITING=0,
+	EXECUTE_COMMAND,
 	EXECUTING,
 	DONE_EXECUTING
 }Cli_state_e;
@@ -35,22 +37,26 @@ typedef void (*print_string)(char *data, uint16_t size);
 
 typedef struct _Cli_HandlerTypeDef{
 	char line[BUFFER_SIZE];
+	char print_Buffer[BUFFER_SIZE];
 	int pos;
 	read_char read_char;
 	print_string print_string;
 	uint8_t commandRunIndex;
+	bool asUserInput;
+	bool asEscape;
+	bool asCtrlC;
 	Cli_state_e state;
 }Cli_HandlerTypeDef_t;
 
 
 // Command structure
 typedef struct {
-    char name[32];
+    char name[16];
     Cli_state_e (*command)(Cli_HandlerTypeDef_t *cli, int argc, char **argv);
 } Command;
 
 
-#include "cli_lfs.h"
+
 
 
 // Function prototypes
@@ -60,5 +66,11 @@ void process_input(Cli_HandlerTypeDef_t *self);
 void cli_init(Cli_HandlerTypeDef_t *self, bool (*read_func)(char *), void (*print_func)(char *data, uint16_t size));
 void cli_start(Cli_HandlerTypeDef_t *self);
 void cli_run(Cli_HandlerTypeDef_t *self);
+char * cli_getUserInput(Cli_HandlerTypeDef_t *self);
+bool cli_escape(Cli_HandlerTypeDef_t *self);
+bool cli_ctrlC(Cli_HandlerTypeDef_t *self);
+int cli_printf(Cli_HandlerTypeDef_t *self,const char * format, ...);
+void cli_hideCursor(Cli_HandlerTypeDef_t *self);
+void cli_showCursor(Cli_HandlerTypeDef_t *self);
 
 #endif /* CLI_H_ */

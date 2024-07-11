@@ -4,8 +4,6 @@
  *  Created on: Jul 5, 2024
  *      Author: licin
  */
-
-
 #include "cli.h"
 
 
@@ -71,8 +69,17 @@ void cli_run(Cli_HandlerTypeDef_t *self){
 			case WAITING:
 				process_input(self);
 				break;
+			case EXECUTE_COMMAND:
+	        	execute_command(self,self->line);
+	        	memset(self->line,'\0',BUFFER_SIZE);
+				break;
 			case EXECUTING:
+				process_input(self);
 				self->state = commands[self->commandRunIndex].command(self,0,NULL);
+				if(self->asUserInput){
+					self->asUserInput=false;
+					memset(self->line,'\0',BUFFER_SIZE);
+				}
 				break;
 			case DONE_EXECUTING:
 				self->state=WAITING;
@@ -85,7 +92,6 @@ void cli_run(Cli_HandlerTypeDef_t *self){
 
 void process_input(Cli_HandlerTypeDef_t *self) {
 
-
     char c;
     if (!self->read_char(&c)) {
         return; // No input available
@@ -95,9 +101,20 @@ void process_input(Cli_HandlerTypeDef_t *self) {
     	self->line[self->pos] = '\0';
         self->print_string("\r\n",2);
         if(self->pos>0){
-        	execute_command(self,self->line);
-        	memset(self->line,'\0',BUFFER_SIZE);
+
+        	switch (self->state) {
+				case WAITING:
+					self->state=EXECUTE_COMMAND;
+					break;
+				case EXECUTING:
+					self->asUserInput=true;
+					break;
+				default:
+					break;
+			}
+
         }else{
+        	if(self->state==WAITING)
         	cli_start(self);
         }
 
@@ -112,6 +129,10 @@ void process_input(Cli_HandlerTypeDef_t *self) {
         	self->line[self->pos++] = c;
             self->print_string(&c,1);
         }
+    } else if(c == 27){	//escape key
+    	self->asEscape=true;
+    } else if(c == 03){	//control-C
+        self->asCtrlC=true;
     }
 }
 
@@ -125,4 +146,52 @@ void cli_init(Cli_HandlerTypeDef_t *self, bool (*read_func)(char *), void (*prin
 
 void cli_start(Cli_HandlerTypeDef_t *self) {
     self->print_string("> ",2);
+}
+
+char * cli_getUserInput(Cli_HandlerTypeDef_t *self){
+	if(self==NULL)return NULL;
+	if(self->asUserInput){
+		return &self->line[0];
+	}
+
+	return NULL;
+}
+
+bool cli_escape(Cli_HandlerTypeDef_t *self){
+	if(self==NULL)return NULL;
+	if(!self->asEscape){
+		return false;
+	}
+	self->asEscape=false;
+	return true;
+}
+
+bool cli_ctrlC(Cli_HandlerTypeDef_t *self){
+	if(self==NULL)return NULL;
+	if(!self->asCtrlC){
+		return false;
+	}
+	self->asCtrlC=false;
+	return true;
+}
+
+int cli_printf(Cli_HandlerTypeDef_t *self,const char * format, ...){
+	va_list args;
+	va_start(args, format);
+
+	// Use snprintf for limited formatting
+	int result = vsnprintf(self->print_Buffer, BUFFER_SIZE-1, format, args);
+	self->print_string(self->print_Buffer, strlen(self->print_Buffer));
+
+	va_end(args);
+	return result; // Return the number of characters written (excluding null terminator)
+}
+
+void cli_hideCursor(Cli_HandlerTypeDef_t *self){
+	self->print_string("\033[?25l", strlen("\033[?25l"));
+}
+
+void cli_showCursor(Cli_HandlerTypeDef_t *self){
+	self->print_string("\033[?25h", strlen("\033[?25h"));
+
 }

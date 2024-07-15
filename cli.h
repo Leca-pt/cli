@@ -52,9 +52,6 @@ typedef enum{
 	CLI_Default_bg	=49
 }Cli_style_e;
 
-
-
-
 // Function pointers for reading a character and printing a string
 typedef bool (*read_char)(char *data);
 typedef void (*print_string)(char *data, uint16_t size);
@@ -70,6 +67,7 @@ typedef struct _Cli_HandlerTypeDef{
 	bool asUserInput;
 	bool asEscape;
 	bool asCtrlC;
+	bool processInputWhileRunning;
 	Cli_state_e state;
 }Cli_HandlerTypeDef_t;
 

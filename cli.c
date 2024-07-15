@@ -35,7 +35,9 @@ void cli_run(Cli_HandlerTypeDef_t *self){
 	        	memset(self->line,'\0',BUFFER_SIZE);
 				break;
 			case EXECUTING:
-				process_input(self);
+				if(self->processInputWhileRunning){
+					process_input(self);
+				}
 				self->state = commands[self->commandRunIndex].command(self,0,NULL);
 				if(self->asUserInput){
 					self->asUserInput=false;
@@ -119,7 +121,6 @@ void cli_setStyle(Cli_HandlerTypeDef_t *self, Cli_style_e code){
 	cli_printf(self, "\033[%dm",code);
 }
 
-
 void execute_command(Cli_HandlerTypeDef_t *self, const char *line) {
     char args[MAX_ARGS][MAX_ARG_LEN];
     char *argv[MAX_ARGS];
@@ -160,7 +161,8 @@ void execute_command(Cli_HandlerTypeDef_t *self, const char *line) {
             return;
         }
     }
-    self->print_string("Command not found\r\n", strlen("Command not found\r\n"));
+    cli_printf(self,"Command not found\r\n");
+    self->state=DONE_EXECUTING;
     cli_start(self);  // Print the prompt if the command was not found
 }
 

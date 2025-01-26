@@ -4,124 +4,18 @@
  *  Created on: Jul 5, 2024
  *      Author: licin
  */
+
+
 #include "cli.h"
 
 
 // Command array and count
 static Command commands[MAX_COMMANDS];
 static int command_count = 0;
+static bool cliDEBUG = true;
 
 
-
-static void execute_command(Cli_HandlerTypeDef_t *self, const char *line);
-
-static void process_input(Cli_HandlerTypeDef_t *self);
-
-void cli_register_command(const char *name, Cli_state_e (*command)(Cli_HandlerTypeDef_t *cli, int argc, char **argv)) {
-    if (command_count < MAX_COMMANDS) {
-        strncpy(commands[command_count].name, name, sizeof(commands[command_count].name) - 1);
-        commands[command_count].command = command;
-        command_count++;
-    }
-}
-
-void cli_run(Cli_HandlerTypeDef_t *self){
-	switch (self->state) {
-			case WAITING:
-				process_input(self);
-				break;
-			case EXECUTE_COMMAND:
-	        	execute_command(self,self->line);
-	        	memset(self->line,'\0',BUFFER_SIZE);
-				break;
-			case EXECUTING:
-				if(self->processInputWhileRunning){
-					process_input(self);
-				}
-				self->state = commands[self->commandRunIndex].command(self,0,NULL);
-				if(self->asUserInput){
-					self->asUserInput=false;
-					memset(self->line,'\0',BUFFER_SIZE);
-				}
-				break;
-			case DONE_EXECUTING:
-				self->state=WAITING;
-				cli_start(self);  // Print the prompt after executing a command
-				break;
-			default:
-				break;
-		}
-}
-
-void cli_init(Cli_HandlerTypeDef_t *self, bool (*read_func)(char *), void (*print_func)(char *data, uint16_t size)) {
-	self->read_char = read_func;
-    self->print_string = print_func;
-    self->pos=0;
-    self->commandRunIndex=0;
-    self->state=WAITING;
-}
-
-void cli_start(Cli_HandlerTypeDef_t *self) {
-    self->print_string("> ",2);
-}
-
-char * cli_getUserInput(Cli_HandlerTypeDef_t *self){
-	if(self==NULL)return NULL;
-	if(self->asUserInput){
-		return &self->line[0];
-	}
-
-	return NULL;
-}
-
-bool cli_escape(Cli_HandlerTypeDef_t *self){
-	if(self==NULL)return NULL;
-	if(!self->asEscape){
-		return false;
-	}
-	self->asEscape=false;
-	return true;
-}
-
-bool cli_ctrlC(Cli_HandlerTypeDef_t *self){
-	if(self==NULL)return NULL;
-	if(!self->asCtrlC){
-		return false;
-	}
-	self->asCtrlC=false;
-	return true;
-}
-
-int cli_printf(Cli_HandlerTypeDef_t *self,const char * format, ...){
-	va_list args;
-	va_start(args, format);
-
-	// Use snprintf for limited formatting
-	int result = vsnprintf(self->print_Buffer, BUFFER_SIZE-1, format, args);
-	self->print_string(self->print_Buffer, strlen(self->print_Buffer));
-
-	va_end(args);
-	return result; // Return the number of characters written (excluding null terminator)
-}
-
-void cli_print(Cli_HandlerTypeDef_t *self,char *data, uint16_t size){
-	self->print_string(data, size);
-}
-
-void cli_hideCursor(Cli_HandlerTypeDef_t *self){
-	self->print_string("\033[?25l", strlen("\033[?25l"));
-}
-
-void cli_showCursor(Cli_HandlerTypeDef_t *self){
-	self->print_string("\033[?25h", strlen("\033[?25h"));
-
-}
-
-void cli_setStyle(Cli_HandlerTypeDef_t *self, Cli_style_e code){
-	cli_printf(self, "\033[%dm",code);
-}
-
-void execute_command(Cli_HandlerTypeDef_t *self, const char *line) {
+static void execute_command(Cli_HandlerTypeDef_t *self, const char *line) {
     char args[MAX_ARGS][MAX_ARG_LEN];
     char *argv[MAX_ARGS];
     int argc = 0;
@@ -161,12 +55,14 @@ void execute_command(Cli_HandlerTypeDef_t *self, const char *line) {
             return;
         }
     }
-    cli_printf(self,"Command not found\r\n");
+    self->print_string("Command not found\r\n", strlen("Command not found\r\n"));
     self->state=DONE_EXECUTING;
     cli_start(self);  // Print the prompt if the command was not found
 }
 
 static void process_input(Cli_HandlerTypeDef_t *self) {
+
+
 
     char c;
     if (!self->read_char(&c)) {
@@ -210,4 +106,222 @@ static void process_input(Cli_HandlerTypeDef_t *self) {
     } else if(c == 03){	//control-C
         self->asCtrlC=true;
     }
+}
+
+
+
+
+void cli_register_command(const char *name, Cli_state_e (*command)(Cli_HandlerTypeDef_t *cli, int argc, char **argv)) {
+    if (command_count < MAX_COMMANDS) {
+        strncpy(commands[command_count].name, name, sizeof(commands[command_count].name) - 1);
+        commands[command_count].command = command;
+        command_count++;
+    }
+}
+
+void cli_run(Cli_HandlerTypeDef_t *self){
+	switch (self->state) {
+			case WAITING:
+				process_input(self);
+				break;
+			case EXECUTE_COMMAND:
+	        	execute_command(self,self->line);
+	        	memset(self->line,'\0',BUFFER_SIZE);
+				break;
+			case EXECUTING:
+				if(self->processInputWhileRunning){
+					process_input(self);
+				}
+				self->state = commands[self->commandRunIndex].command(self,0,NULL);
+				if(self->asUserInput){
+					self->asUserInput=false;
+					memset(self->line,'\0',BUFFER_SIZE);
+				}
+				break;
+			case DONE_EXECUTING:
+				self->state=WAITING;
+				cli_start(self);  // Print the prompt after executing a command
+				break;
+			default:
+				break;
+		}
+}
+
+void cli_init(Cli_HandlerTypeDef_t *self, bool (*read_func)(char *), void (*print_func)(char *data, uint16_t size)) {
+	self->read_char = read_func;
+    self->print_string = print_func;
+    self->pos=0;
+    self->commandRunIndex=0;
+    self->processInputWhileRunning = false;
+    self->state=WAITING;
+}
+
+void cli_start(Cli_HandlerTypeDef_t *self) {
+    self->print_string("> ",2);
+}
+
+char * cli_getUserInput(Cli_HandlerTypeDef_t *self){
+	if(self==NULL)return NULL;
+	process_input(self);
+	if(self->asUserInput){
+		return &self->line[0];
+	}
+
+	return NULL;
+}
+
+bool cli_escape(Cli_HandlerTypeDef_t *self){
+	if(self==NULL)return NULL;
+	process_input(self);
+	if(!self->asEscape){
+		return false;
+	}
+	self->asEscape=false;
+	return true;
+}
+
+bool cli_ctrlC(Cli_HandlerTypeDef_t *self){
+	if(self==NULL)return NULL;
+	process_input(self);
+	if(!self->asCtrlC){
+		return false;
+	}
+	self->asCtrlC=false;
+	return true;
+}
+
+int cli_printf(Cli_HandlerTypeDef_t *self,const char * format, ...){
+	va_list args;
+	va_start(args, format);
+
+	// Use snprintf for limited formatting
+	int result = vsnprintf(self->print_Buffer, BUFFER_SIZE-1, format, args);
+	self->print_string(self->print_Buffer, strlen(self->print_Buffer));
+
+	va_end(args);
+	return result; // Return the number of characters written (excluding null terminator)
+}
+
+void cli_hideCursor(Cli_HandlerTypeDef_t *self){
+	self->print_string("\033[?25l", strlen("\033[?25l"));
+}
+
+void cli_showCursor(Cli_HandlerTypeDef_t *self){
+	self->print_string("\033[?25h", strlen("\033[?25h"));
+
+}
+
+void cli_setStyle(Cli_HandlerTypeDef_t *self, Cli_style_e code){
+	cli_printf(self, "\033[%dm",code);
+}
+
+int cli_logMessage(Cli_HandlerTypeDef_t *self, Cli_logLevel_e level,const char * format, ...){
+	va_list args;
+	va_start(args, format);
+	int result = 0;
+
+	switch (level) {
+		case LOG_LEVEL_DEBUG:
+			if(cliDEBUG){
+				cli_setStyle(self, CLI_Magenta);
+				self->print_string(DEBUG_HEADER, strlen(DEBUG_HEADER));
+				cli_setStyle(self, CLI_Reset);
+				result = vsnprintf(self->print_Buffer, BUFFER_SIZE-1, format, args);
+				self->print_string(self->print_Buffer, strlen(self->print_Buffer));
+				return result;
+			}
+			return 0;
+			break;
+		case LOG_LEVEL_ERROR:
+			cli_setStyle(self, CLI_Red);
+			self->print_string(ERROR_HEADER, strlen(ERROR_HEADER));
+			break;
+		case LOG_LEVEL_INFO:
+			cli_setStyle(self, CLI_Cyan);
+			self->print_string(INFO_HEADER, strlen(INFO_HEADER));
+			break;
+		case LOG_LEVEL_WARNING:
+			cli_setStyle(self, CLI_Yellow);
+			self->print_string(WARNING_HEADER, strlen(WARNING_HEADER));
+			break;
+		case LOG_LEVEL_FAIL:
+			cli_setStyle(self, CLI_Red);
+			self->print_string(FAIL_HEADER, strlen(FAIL_HEADER));
+			break;
+		case LOG_LEVEL_OK:
+			cli_setStyle(self, CLI_Green);
+			self->print_string(OK_HEADER, strlen(OK_HEADER));
+			break;
+		default:
+			break;
+	}
+
+	cli_setStyle(self, CLI_Reset);
+	result = vsnprintf(self->print_Buffer, BUFFER_SIZE-1, format, args);
+	self->print_string(self->print_Buffer, strlen(self->print_Buffer));
+
+	va_end(args);
+	return result;
+
+}
+
+int cli_styled_printf(Cli_HandlerTypeDef_t *self, Cli_style_e style, const char * format, ...){
+	if(self==NULL)return 0;
+
+	cli_setStyle(self, style);
+	va_list args;
+	va_start(args, format);
+
+	// Use snprintf for limited formatting
+	int result = vsnprintf(self->print_Buffer, BUFFER_SIZE-1, format, args);
+	self->print_string(self->print_Buffer, strlen(self->print_Buffer));
+
+	va_end(args);
+	cli_setStyle(self, CLI_Reset);
+	return result; // Return the number of characters written (excluding null terminator)
+}
+
+void print_progress_bar(Cli_HandlerTypeDef_t *self,int min_val, int max_val, int current_val, int bar_width, const char *title, char trailing_char, char after_char, char current_val_char) {
+
+    // Ensure current_val is within range
+    if (current_val < min_val) current_val = min_val;
+    if (current_val > max_val) current_val = max_val;
+
+    // Calculate progress as a percentage
+    int range = max_val - min_val;
+    int progress = current_val - min_val;
+    float percentage = (float)progress / range;
+
+    // Determine the number of completed segments
+    int completed = (int)(percentage * bar_width);
+    cli_hideCursor(self);
+    if(title!=NULL){
+    	cli_printf(self, "%s ", title);
+    }
+
+    // Print the progress bar
+    cli_printf(self,"\033[0m["); // Reset any formatting and print the opening bracket
+    for (int i = 0; i < bar_width; i++) {
+        if (i < completed ) {
+        	cli_printf(self,"%c", trailing_char);
+        } else if (i == completed && current_val < max_val) {
+        	cli_printf(self,"%c", current_val_char); // Special character for the current value
+        } else {
+        	cli_printf(self,"%c", after_char);
+        }
+    }
+    cli_printf(self,"] %3.0f%%\r", percentage * 100.0); // Print the percentage
+    cli_showCursor(self);
+}
+
+void cli_clearScreen(Cli_HandlerTypeDef_t *self){
+	if(self==NULL)return;
+
+	cli_printf(self, "\x1b[2J\x1b[H");
+
+	return;
+}
+
+void cli_setDebug(bool val){
+	cliDEBUG = val;
 }

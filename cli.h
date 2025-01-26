@@ -20,14 +20,32 @@
 #define MAX_COMMANDS 100
 #define MAX_ARGS 100
 #define MAX_ARG_LEN 128
-#define BUFFER_SIZE 1024
+#define BUFFER_SIZE 512
 
-typedef enum{
+
+#define    DEBUG_HEADER		"[DEBUG]"
+#define    INFO_HEADER		"[INFO]"
+#define    WARNING_HEADER	"[WARN]"
+#define    ERROR_HEADER		"[ERROR]"
+#define    FAIL_HEADER		"[FAIL]"
+#define    OK_HEADER		"[OK]"
+
+
+typedef enum cli_state{
 	WAITING=0,
 	EXECUTE_COMMAND,
 	EXECUTING,
 	DONE_EXECUTING
 }Cli_state_e;
+
+typedef enum cli_log_level{
+	LOG_LEVEL_DEBUG,
+	LOG_LEVEL_INFO,
+	LOG_LEVEL_WARNING,
+	LOG_LEVEL_ERROR,
+	LOG_LEVEL_OK,
+	LOG_LEVEL_FAIL
+}Cli_logLevel_e;
 
 typedef enum{
 	CLI_Reset		=0,
@@ -56,7 +74,8 @@ typedef enum{
 typedef bool (*read_char)(char *data);
 typedef void (*print_string)(char *data, uint16_t size);
 
-//CLI control structure
+
+
 typedef struct _Cli_HandlerTypeDef{
 	char line[BUFFER_SIZE];
 	char print_Buffer[BUFFER_SIZE];
@@ -73,7 +92,7 @@ typedef struct _Cli_HandlerTypeDef{
 
 
 // Command structure
-typedef struct {
+typedef struct _Command{
     char name[16];
     Cli_state_e (*command)(Cli_HandlerTypeDef_t *cli, int argc, char **argv);
 } Command;
@@ -82,16 +101,35 @@ typedef struct {
 
 // Function prototypes
 void cli_register_command(const char *name, Cli_state_e (*command)(Cli_HandlerTypeDef_t *cli, int argc, char **argv));
+
 void cli_init(Cli_HandlerTypeDef_t *self, bool (*read_func)(char *), void (*print_func)(char *data, uint16_t size));
+
 void cli_start(Cli_HandlerTypeDef_t *self);
+
 void cli_run(Cli_HandlerTypeDef_t *self);
+
 char * cli_getUserInput(Cli_HandlerTypeDef_t *self);
+
 bool cli_escape(Cli_HandlerTypeDef_t *self);
+
 bool cli_ctrlC(Cli_HandlerTypeDef_t *self);
+
 int cli_printf(Cli_HandlerTypeDef_t *self,const char * format, ...);
-void cli_print(Cli_HandlerTypeDef_t *self,char *data, uint16_t size);
+
 void cli_hideCursor(Cli_HandlerTypeDef_t *self);
+
 void cli_showCursor(Cli_HandlerTypeDef_t *self);
+
 void cli_setStyle(Cli_HandlerTypeDef_t *self, Cli_style_e code);
+
+int cli_logMessage(Cli_HandlerTypeDef_t *self, Cli_logLevel_e level,const char * format, ...);
+
+int cli_styled_printf(Cli_HandlerTypeDef_t *self, Cli_style_e style, const char * format, ...);
+
+void print_progress_bar(Cli_HandlerTypeDef_t *self, int min_val, int max_val, int current_val, int bar_width, const char *title, char trailing_char, char after_char, char current_val_char);
+
+void cli_clearScreen(Cli_HandlerTypeDef_t *self);
+
+void cli_setDebug(bool val);
 
 #endif /* CLI_H_ */

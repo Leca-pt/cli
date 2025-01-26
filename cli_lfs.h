@@ -10,6 +10,7 @@
 
 #include "cli.h"
 #include "lfs.h"
+#include "xmodem.h"
 
 #define COPY_BUFFER_SIZE 64
 
@@ -37,5 +38,7 @@ Cli_state_e create_new_file(Cli_HandlerTypeDef_t *cli, int argc, char **argv);
 Cli_state_e move_file(Cli_HandlerTypeDef_t *cli, int argc, char **argv);
 
 Cli_state_e copy_file(Cli_HandlerTypeDef_t *cli, int argc, char **argv);
+
+Cli_state_e upload_file(Cli_HandlerTypeDef_t *cli, int argc, char **argv);
 
 #endif /* CLI_LFS_H_ */

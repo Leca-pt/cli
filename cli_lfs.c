@@ -11,8 +11,48 @@ extern lfs_t lfs;
 char current_path[256] = "/";
 
 // Helper function to normalize the path
-static void normalize_path(char *path);
+static void normalize_path(char *path) {
+    char temp[256];
+    char *p = path, *q = temp;
+    int len;
 
+    while (*p) {
+        if (*p == '/') {
+            if (*(p + 1) == '/') {
+                // Skip duplicate slashes
+                p++;
+                continue;
+            } else if (*(p + 1) == '.') {
+                if (*(p + 2) == '/') {
+                    // Skip "./"
+                    p += 2;
+                    continue;
+                } else if (*(p + 2) == '.' && (*(p + 3) == '/' || *(p + 3) == '\0')) {
+                    // Handle "../"
+                    p += 3;
+                    if (q > temp) {
+                        // Move up one level in the path
+                        q--;
+                        while (q > temp && *(q - 1) != '/') {
+                            q--;
+                        }
+                    }
+                    continue;
+                }
+            }
+        }
+        *q++ = *p++;
+    }
+    *q = '\0';
+
+    // If the path ends with a '/', remove it (unless it's the root "/")
+    len = strlen(temp);
+    if (len > 1 && temp[len - 1] == '/') {
+        temp[len - 1] = '\0';
+    }
+
+    strcpy(path, temp);
+}
 
 char * get_currentPath(void){
 	return &current_path[0];
@@ -106,7 +146,7 @@ Cli_state_e echo_command(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
     return DONE_EXECUTING;
 }
 
-// Function to print a file
+// Function to print a file using LittleFS
 Cli_state_e cat_command(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
     if (argc < 2) {
     	cli_printf(cli,"Usage: cat <filename>\r\n");
@@ -136,19 +176,19 @@ Cli_state_e cat_command(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
     char buffer[128];
     lfs_ssize_t read_size;
     while ((read_size = lfs_file_read(&lfs, &file, buffer, sizeof(buffer))) > 0) {
-        cli_print(cli, buffer, read_size);
+        cli->print_string(buffer, read_size);
     }
 
     if (read_size < 0) {
     	cli_printf(cli,"Failed to read file\r\n");
     }
-
+    cli_printf(cli,"\r\n");
     lfs_file_close(&lfs, &file);
 
     return DONE_EXECUTING;
 }
 
-// Function to remove a file
+// Function to remove a file using LittleFS
 Cli_state_e rm_command(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
     if (argc < 2) {
     	cli_printf(cli,"Usage: rm <filename>\r\n");
@@ -181,7 +221,7 @@ Cli_state_e rm_command(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
     return DONE_EXECUTING;
 }
 
-// Function to list a directory
+// Function to list a directory using LittleFS
 Cli_state_e lfs_ls(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
 
 	lfs_dir_t dir;
@@ -226,7 +266,7 @@ Cli_state_e lfs_ls(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
     return DONE_EXECUTING;
 }
 
-// Function to remove a directory
+// Function to remove a directory using LittleFS
 Cli_state_e rmdir(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
     if (argc < 2) {
     	cli_printf(cli,"Usage: rmdir <directory>\r\n");
@@ -235,7 +275,7 @@ Cli_state_e rmdir(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
     }
 
     const char *directory = argv[1];
-    char full_path[256];
+    char full_path[257];
 
     // Handle absolute and relative paths
     if (directory[0] == '/') {
@@ -258,7 +298,7 @@ Cli_state_e rmdir(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
     return DONE_EXECUTING;
 }
 
-// Function to make a directory
+// Function to make a directory using LittleFS
 Cli_state_e mkdir(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
     if (argc < 2) {
     	cli_printf(cli,"Usage: mkdir <directory>\r\n");
@@ -266,7 +306,7 @@ Cli_state_e mkdir(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
     }
 
     const char *directory = argv[1];
-    char full_path[256];
+    char full_path[257];
 
     // Handle absolute and relative paths
     if (directory[0] == '/') {
@@ -290,6 +330,7 @@ Cli_state_e mkdir(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
     return DONE_EXECUTING;
 }
 
+// Function to change a directory using LittleFS
 Cli_state_e change_dir(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
     if (argc < 2) {
     	cli_printf(cli,"Usage: cd <path>\r\n");
@@ -298,7 +339,7 @@ Cli_state_e change_dir(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
 
     lfs_dir_t dir;
     const char *path = argv[1];
-    char new_path[256];
+    char new_path[257];
 
     // Handle absolute and relative paths
     if (path[0] == '/') {
@@ -339,7 +380,7 @@ Cli_state_e create_new_file(Cli_HandlerTypeDef_t *cli, int argc, char **argv)  {
         return DONE_EXECUTING;
     }
 
-    char full_path[256];
+    char full_path[257];
     const char *filename = argv[1];
 
     // Check if the provided path is absolute or relative
@@ -349,9 +390,9 @@ Cli_state_e create_new_file(Cli_HandlerTypeDef_t *cli, int argc, char **argv)  {
     } else {
         // Relative path
         if (current_path[strlen(current_path) - 1] == '/') {
-            snprintf(full_path, 256, "%s%s", current_path, filename);
+            snprintf(full_path, sizeof(full_path), "%s%s", current_path, filename);
         } else {
-            snprintf(full_path, 256, "%s/%s", current_path, filename);
+            snprintf(full_path, sizeof(full_path), "%s/%s", current_path, filename);
         }
     }
 
@@ -374,8 +415,8 @@ Cli_state_e move_file(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
         return DONE_EXECUTING;
     }
 
-    char source_path[256];
-    char destination_path[256];
+    char source_path[257];
+    char destination_path[257];
     const char *source = argv[1];
     const char *destination = argv[2];
 
@@ -387,9 +428,9 @@ Cli_state_e move_file(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
     } else {
         // Relative path
         if (current_path[strlen(current_path) - 1] == '/') {
-            snprintf(source_path, 256, "%s%s", current_path, source);
+            snprintf(source_path, sizeof(source_path), "%s%s", current_path, source);
         } else {
-            snprintf(source_path, 256, "%s/%s", current_path, source);
+            snprintf(source_path, sizeof(source_path), "%s/%s", current_path, source);
         }
     }
 
@@ -400,9 +441,9 @@ Cli_state_e move_file(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
     } else {
         // Relative path
         if (current_path[strlen(current_path) - 1] == '/') {
-            snprintf(destination_path, 256, "%s%s", current_path, destination);
+            snprintf(destination_path, sizeof(destination_path), "%s%s", current_path, destination);
         } else {
-            snprintf(destination_path, 256, "%s/%s", current_path, destination);
+            snprintf(destination_path, sizeof(destination_path), "%s/%s", current_path, destination);
         }
     }
 
@@ -424,8 +465,8 @@ Cli_state_e copy_file(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
         return DONE_EXECUTING;
     }
 
-    char source_path[256];
-    char destination_path[256];
+    char source_path[257];
+    char destination_path[257];
     const char *source = argv[1];
     const char *destination = argv[2];
 
@@ -436,9 +477,9 @@ Cli_state_e copy_file(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
     } else {
         // Relative path
         if (current_path[strlen(current_path) - 1] == '/') {
-            snprintf(source_path, 256, "%s%s", current_path, source);
+            snprintf(source_path, sizeof(source_path), "%s%s", current_path, source);
         } else {
-            snprintf(source_path, 256, "%s/%s", current_path, source);
+            snprintf(source_path, sizeof(source_path), "%s/%s", current_path, source);
         }
     }
 
@@ -449,9 +490,9 @@ Cli_state_e copy_file(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
     } else {
         // Relative path
         if (current_path[strlen(current_path) - 1] == '/') {
-            snprintf(destination_path, 256, "%s%s", current_path, destination);
+            snprintf(destination_path, sizeof(destination_path), "%s%s", current_path, destination);
         } else {
-            snprintf(destination_path, 256, "%s/%s", current_path, destination);
+            snprintf(destination_path, sizeof(destination_path), "%s/%s", current_path, destination);
         }
     }
 
@@ -495,47 +536,38 @@ Cli_state_e copy_file(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
     return DONE_EXECUTING;
 }
 
+Cli_state_e upload_file(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
 
-// Helper function to normalize the path
-static void normalize_path(char *path) {
-    char temp[256];
-    char *p = path, *q = temp;
-    int len;
+	if(argc<2){
+		cli_printf(cli, "Usage: upload <file path>\r\n");
+		return DONE_EXECUTING;
+	}
 
-    while (*p) {
-        if (*p == '/') {
-            if (*(p + 1) == '/') {
-                // Skip duplicate slashes
-                p++;
-                continue;
-            } else if (*(p + 1) == '.') {
-                if (*(p + 2) == '/') {
-                    // Skip "./"
-                    p += 2;
-                    continue;
-                } else if (*(p + 2) == '.' && (*(p + 3) == '/' || *(p + 3) == '\0')) {
-                    // Handle "../"
-                    p += 3;
-                    if (q > temp) {
-                        // Move up one level in the path
-                        q--;
-                        while (q > temp && *(q - 1) != '/') {
-                            q--;
-                        }
-                    }
-                    continue;
-                }
-            }
-        }
-        *q++ = *p++;
-    }
-    *q = '\0';
+	char full_path[257];
+	const char *filename = argv[1];
 
-    // If the path ends with a '/', remove it (unless it's the root "/")
-    len = strlen(temp);
-    if (len > 1 && temp[len - 1] == '/') {
-        temp[len - 1] = '\0';
-    }
+	// Check if the provided path is absolute or relative
+	if (filename[0] == '/') {
+		// Absolute path
+		strncpy(full_path, filename, 256);
+	} else {
+		// Relative path
+		if (current_path[strlen(current_path) - 1] == '/') {
+			snprintf(full_path, sizeof(full_path), "%s%s", current_path, filename);
+		} else {
+			snprintf(full_path, sizeof(full_path), "%s/%s", current_path, filename);
+		}
+	}
 
-    strcpy(path, temp);
+	cli_printf(cli, "path set to %s\r\n",full_path);
+	cli_printf(cli, "Starting XMODEM file upload. Please start the transfer on your terminal.\r\n");
+
+	// Start file upload
+	int result = xmodem_receive_file(cli, full_path);
+	if (result == 0) {
+		cli_printf(cli, "File upload completed successfully.\r\n");
+	} else {
+		cli_printf(cli, "File upload failed. Please try again.\r\n");
+	}
+	return DONE_EXECUTING;
 }

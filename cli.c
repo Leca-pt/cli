@@ -154,10 +154,13 @@ void cli_init(Cli_HandlerTypeDef_t *self, bool (*read_func)(char *), void (*prin
     self->commandRunIndex=0;
     self->processInputWhileRunning = false;
     self->state=WAITING;
+    strcpy(self->current_path , "/");
+
 }
 
 void cli_start(Cli_HandlerTypeDef_t *self) {
-    self->print_string("> ",2);
+	cli_printf(self, "%s>", self->current_path);
+//    self->print_string("> ",2);
 }
 
 char * cli_getUserInput(Cli_HandlerTypeDef_t *self){
@@ -324,4 +327,10 @@ void cli_clearScreen(Cli_HandlerTypeDef_t *self){
 
 void cli_setDebug(bool val){
 	cliDEBUG = val;
+}
+
+char *cli_getCurrentPath(Cli_HandlerTypeDef_t *self){
+	if(self==NULL)return NULL;
+
+	return self->current_path;
 }

@@ -23,13 +23,14 @@
 #define BUFFER_SIZE 512
 
 
-#define    DEBUG_HEADER		"[DEBUG]"
-#define    INFO_HEADER		"[INFO]"
-#define    WARNING_HEADER	"[WARN]"
-#define    ERROR_HEADER		"[ERROR]"
-#define    FAIL_HEADER		"[FAIL]"
-#define    OK_HEADER		"[OK]"
+#define	DEBUG_HEADER	"[DEBUG]"
+#define	INFO_HEADER		"[INFO]"
+#define	WARNING_HEADER	"[WARN]"
+#define	ERROR_HEADER	"[ERROR]"
+#define	FAIL_HEADER		"[FAIL]"
+#define	OK_HEADER		"[OK]"
 
+#define	MAX_FILEPATH_SIZE 256
 
 typedef enum cli_state{
 	WAITING=0,
@@ -70,6 +71,7 @@ typedef enum{
 	CLI_Default_bg	=49
 }Cli_style_e;
 
+
 // Function pointers for reading a character and printing a string
 typedef bool (*read_char)(char *data);
 typedef void (*print_string)(char *data, uint16_t size);
@@ -88,6 +90,7 @@ typedef struct _Cli_HandlerTypeDef{
 	bool asCtrlC;
 	bool processInputWhileRunning;
 	Cli_state_e state;
+	char current_path[MAX_FILEPATH_SIZE];
 }Cli_HandlerTypeDef_t;
 
 
@@ -131,5 +134,7 @@ void print_progress_bar(Cli_HandlerTypeDef_t *self, int min_val, int max_val, in
 void cli_clearScreen(Cli_HandlerTypeDef_t *self);
 
 void cli_setDebug(bool val);
+
+char * cli_getCurrentPath(Cli_HandlerTypeDef_t *cli);
 
 #endif /* CLI_H_ */

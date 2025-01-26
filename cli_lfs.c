@@ -8,7 +8,7 @@
 #include "cli_lfs.h"
 
 extern lfs_t lfs;
-char current_path[256] = "/";
+///char current_path[256] = "/";
 
 // Helper function to normalize the path
 static void normalize_path(char *path) {
@@ -54,12 +54,9 @@ static void normalize_path(char *path) {
     strcpy(path, temp);
 }
 
-char * get_currentPath(void){
-	return &current_path[0];
-}
-
 //Function to get print current path
 Cli_state_e pwd_command(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
+	char *current_path=cli_getCurrentPath(cli);
 	cli_printf(cli,"%s\r\n", current_path);
     return DONE_EXECUTING;
 }
@@ -73,6 +70,7 @@ Cli_state_e echo_command(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
     }
     char output_str[1024] = {0};  // Adjust buffer size as needed
     char file_path[512] = {0};    // Buffer for the full file path
+    char *current_path=cli_getCurrentPath(cli);
     int append_mode = 0;          // 0: No file operation, 1: Overwrite, 2: Append
 
     // Check for redirection operators
@@ -154,6 +152,7 @@ Cli_state_e cat_command(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
     }
     lfs_file_t file;
     char file_path[512] = {0};    // Buffer for the full file path
+    char *current_path=cli_getCurrentPath(cli);
 
     // Determine if the path is absolute or relative
     const char *path_argument = argv[1];
@@ -196,6 +195,7 @@ Cli_state_e rm_command(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
     }
 
     char file_path[512] = {0};  // Buffer for the full file path
+    char *current_path=cli_getCurrentPath(cli);
 
     // Determine if the path is absolute or relative
     const char *path_argument = argv[1];
@@ -225,6 +225,8 @@ Cli_state_e rm_command(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
 Cli_state_e lfs_ls(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
 
 	lfs_dir_t dir;
+	char *current_path=cli_getCurrentPath(cli);
+
     int err = lfs_dir_open(&lfs, &dir, current_path);
     if (err) {
         return DONE_EXECUTING;
@@ -276,6 +278,7 @@ Cli_state_e rmdir(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
 
     const char *directory = argv[1];
     char full_path[257];
+    char *current_path=cli_getCurrentPath(cli);
 
     // Handle absolute and relative paths
     if (directory[0] == '/') {
@@ -307,6 +310,7 @@ Cli_state_e mkdir(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
 
     const char *directory = argv[1];
     char full_path[257];
+    char *current_path=cli_getCurrentPath(cli);
 
     // Handle absolute and relative paths
     if (directory[0] == '/') {
@@ -339,7 +343,8 @@ Cli_state_e change_dir(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
 
     lfs_dir_t dir;
     const char *path = argv[1];
-    char new_path[257];
+    char new_path[257]={0};
+    char *current_path=cli_getCurrentPath(cli);
 
     // Handle absolute and relative paths
     if (path[0] == '/') {
@@ -365,8 +370,8 @@ Cli_state_e change_dir(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
     lfs_dir_close(&lfs, &dir);
 
     // Update the current path
-    strncpy(current_path, new_path, sizeof(current_path) - 1);
-    current_path[sizeof(current_path) - 1] = '\0';
+    strncpy(current_path, new_path, MAX_FILEPATH_SIZE-1);
+    current_path[strlen(current_path)] = '\0';
 
     cli_printf(cli,"Changed directory to '%s'\r\n",current_path);
     //printf("Changed directory to '%s'\r\n", current_path);
@@ -382,6 +387,7 @@ Cli_state_e create_new_file(Cli_HandlerTypeDef_t *cli, int argc, char **argv)  {
 
     char full_path[257];
     const char *filename = argv[1];
+    char *current_path=cli_getCurrentPath(cli);
 
     // Check if the provided path is absolute or relative
     if (filename[0] == '/') {
@@ -419,6 +425,7 @@ Cli_state_e move_file(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
     char destination_path[257];
     const char *source = argv[1];
     const char *destination = argv[2];
+    char *current_path=cli_getCurrentPath(cli);
 
     // Handle source path
     if (source[0] == '/') {
@@ -469,6 +476,7 @@ Cli_state_e copy_file(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
     char destination_path[257];
     const char *source = argv[1];
     const char *destination = argv[2];
+    char *current_path=cli_getCurrentPath(cli);
 
     // Handle source path
     if (source[0] == '/') {
@@ -545,6 +553,7 @@ Cli_state_e upload_file(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
 
 	char full_path[257];
 	const char *filename = argv[1];
+	char *current_path=cli_getCurrentPath(cli);
 
 	// Check if the provided path is absolute or relative
 	if (filename[0] == '/') {

@@ -54,6 +54,50 @@ static void normalize_path(char *path) {
     strcpy(path, temp);
 }
 
+int remove_directory_recursive(Cli_HandlerTypeDef_t *cli, const char *path) {
+    lfs_dir_t dir;
+    struct lfs_info info;
+
+    // Open the directory
+    if (lfs_dir_open(&lfs, &dir, path) < 0) {
+        return -1; // Failed to open directory
+    }
+
+    // Iterate over directory contents
+    while (lfs_dir_read(&lfs, &dir, &info) > 0) {
+        if (strcmp(info.name, ".") == 0 || strcmp(info.name, "..") == 0) {
+            continue; // Skip current and parent directory entries
+        }
+
+        char child_path[257];
+        snprintf(child_path, sizeof(child_path), "%s/%s", path, info.name);
+
+        if (info.type == LFS_TYPE_DIR) {
+            // Recursively delete subdirectory
+            if (remove_directory_recursive(cli, child_path) < 0) {
+                lfs_dir_close(&lfs, &dir);
+                return -1;
+            }
+        } else if (info.type == LFS_TYPE_REG) {
+            // Delete file
+            if (lfs_remove(&lfs, child_path) < 0) {
+                lfs_dir_close(&lfs, &dir);
+                return -1;
+            }
+        }
+    }
+
+    lfs_dir_close(&lfs, &dir);
+
+    // Finally, delete the directory itself
+    if (lfs_remove(&lfs, path) < 0) {
+        return -1;
+    }
+
+    return 0; // Success
+}
+
+
 //Function to get print current path
 Cli_state_e pwd_command(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
 	char *current_path=cli_getCurrentPath(cli);
@@ -301,6 +345,58 @@ Cli_state_e rmdir(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
     return DONE_EXECUTING;
 }
 
+Cli_state_e rmdir_rec(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
+    if (argc < 2) {
+        cli_printf(cli, "Usage: rmdir [-r] <directory>\r\n");
+        return DONE_EXECUTING;
+    }
+
+    int recursive_force = 0;
+    const char *directory = NULL;
+
+    // Parse arguments
+    if (argc == 3 && strcmp(argv[1], "-r") == 0) {
+        recursive_force = 1;
+        directory = argv[2];
+    } else if (argc == 2) {
+        directory = argv[1];
+    } else {
+        cli_printf(cli, "Usage: rmdir [-r] <directory>\r\n");
+        return DONE_EXECUTING;
+    }
+
+    char full_path[257];
+    char *current_path = cli_getCurrentPath(cli);
+
+    // Handle absolute and relative paths
+    if (directory[0] == '/') {
+        strncpy(full_path, directory, sizeof(full_path) - 1);
+    } else {
+        snprintf(full_path, sizeof(full_path), "%s/%s", current_path, directory);
+    }
+
+    // Normalize the path
+    normalize_path(full_path);
+
+    // Check if recursive force is enabled
+    if (recursive_force) {
+        if (remove_directory_recursive(cli, full_path) < 0) {
+            cli_printf(cli, "Failed to remove directory recursively.\r\n");
+            return DONE_EXECUTING;
+        }
+    } else {
+        // Attempt to remove directory directly
+        if (lfs_remove(&lfs, full_path) < 0) {
+            cli_printf(cli, "Failed to remove directory. Directory does not exist or not empty.\r\n");
+            return DONE_EXECUTING;
+        }
+    }
+
+    cli_printf(cli, "Directory removed.\r\n");
+    return DONE_EXECUTING;
+}
+
+
 // Function to make a directory using LittleFS
 Cli_state_e mkdir(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
     if (argc < 2) {
@@ -544,39 +640,4 @@ Cli_state_e copy_file(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
     return DONE_EXECUTING;
 }
 
-Cli_state_e upload_file(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
 
-	if(argc<2){
-		cli_printf(cli, "Usage: upload <file path>\r\n");
-		return DONE_EXECUTING;
-	}
-
-	char full_path[257];
-	const char *filename = argv[1];
-	char *current_path=cli_getCurrentPath(cli);
-
-	// Check if the provided path is absolute or relative
-	if (filename[0] == '/') {
-		// Absolute path
-		strncpy(full_path, filename, 256);
-	} else {
-		// Relative path
-		if (current_path[strlen(current_path) - 1] == '/') {
-			snprintf(full_path, sizeof(full_path), "%s%s", current_path, filename);
-		} else {
-			snprintf(full_path, sizeof(full_path), "%s/%s", current_path, filename);
-		}
-	}
-
-	cli_printf(cli, "path set to %s\r\n",full_path);
-	cli_printf(cli, "Starting XMODEM file upload. Please start the transfer on your terminal.\r\n");
-
-	// Start file upload
-	int result = xmodem_receive_file(cli, full_path);
-	if (result == 0) {
-		cli_printf(cli, "File upload completed successfully.\r\n");
-	} else {
-		cli_printf(cli, "File upload failed. Please try again.\r\n");
-	}
-	return DONE_EXECUTING;
-}

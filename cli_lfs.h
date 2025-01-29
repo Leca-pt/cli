@@ -10,7 +10,7 @@
 
 #include "cli.h"
 #include "lfs.h"
-#include "xmodem.h"
+
 
 #define COPY_BUFFER_SIZE 64
 
@@ -28,6 +28,8 @@ Cli_state_e lfs_ls(Cli_HandlerTypeDef_t *cli, int argc, char **argv);
 
 // Function to remove a directory
 Cli_state_e rmdir(Cli_HandlerTypeDef_t *cli, int argc, char **argv);
+
+Cli_state_e rmdir_rec(Cli_HandlerTypeDef_t *cli, int argc, char **argv);
 // Function to make a directory
 Cli_state_e mkdir(Cli_HandlerTypeDef_t *cli, int argc, char **argv);
 
@@ -39,6 +41,6 @@ Cli_state_e move_file(Cli_HandlerTypeDef_t *cli, int argc, char **argv);
 
 Cli_state_e copy_file(Cli_HandlerTypeDef_t *cli, int argc, char **argv);
 
-Cli_state_e upload_file(Cli_HandlerTypeDef_t *cli, int argc, char **argv);
+
 
 #endif /* CLI_LFS_H_ */

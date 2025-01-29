@@ -57,12 +57,9 @@ static void execute_command(Cli_HandlerTypeDef_t *self, const char *line) {
     }
     self->print_string("Command not found\r\n", strlen("Command not found\r\n"));
     self->state=DONE_EXECUTING;
-    cli_start(self);  // Print the prompt if the command was not found
 }
 
 static void process_input(Cli_HandlerTypeDef_t *self) {
-
-
 
     char c;
     if (!self->read_char(&c)) {
@@ -79,6 +76,8 @@ static void process_input(Cli_HandlerTypeDef_t *self) {
 					self->state=EXECUTE_COMMAND;
 					break;
 				case EXECUTING:
+				case LOGIN_PROMPT:
+				case PSW_PROMPT:
 					self->asUserInput=true;
 					break;
 				default:
@@ -99,7 +98,10 @@ static void process_input(Cli_HandlerTypeDef_t *self) {
     } else if (c >= 32 && c <= 126) { // Printable characters
         if (self->pos < BUFFER_SIZE - 1) {
         	self->line[self->pos++] = c;
-            self->print_string(&c,1);
+        	if(self->state != PSW_PROMPT){
+        		self->print_string(&c,1);
+        	}
+
         }
     } else if(c == 27){	//escape key
     	self->asEscape=true;
@@ -108,7 +110,10 @@ static void process_input(Cli_HandlerTypeDef_t *self) {
     }
 }
 
-
+Cli_state_e exit_cli(Cli_HandlerTypeDef_t *self,int argc, char **argv){
+	cli_printf(self, "Bye!!!\r\n");
+	return LOCKED;
+}
 
 
 void cli_register_command(const char *name, Cli_state_e (*command)(Cli_HandlerTypeDef_t *cli, int argc, char **argv)) {
@@ -121,6 +126,33 @@ void cli_register_command(const char *name, Cli_state_e (*command)(Cli_HandlerTy
 
 void cli_run(Cli_HandlerTypeDef_t *self){
 	switch (self->state) {
+			case LOCKED:
+				cli_printf(self, "login as:");
+				self->state = LOGIN_PROMPT;
+				break;
+			case LOGIN_PROMPT:
+				char *input = cli_getUserInput(self);
+				if(input!=NULL){
+					strcpy(self->user, input);
+					cli_printf(self, "password:");
+					self->asUserInput=false;
+					self->state = PSW_PROMPT;
+				}
+				break;
+			case PSW_PROMPT:
+				char *psw = cli_getUserInput(self);
+				if(psw!=NULL){
+					strcpy(self->psw, psw);
+					if(strcmp(self->psw, "pass")==0 && strcmp(self->user, "admin")==0){
+						cli_start(self);
+						self->state = WAITING;
+					}else{
+						cli_printf(self,"Wrong login! try again.\r\n" );
+						self->state = LOCKED;
+					}
+					self->asUserInput=false;
+				}
+				break;
 			case WAITING:
 				process_input(self);
 				break;
@@ -147,13 +179,17 @@ void cli_run(Cli_HandlerTypeDef_t *self){
 		}
 }
 
-void cli_init(Cli_HandlerTypeDef_t *self, bool (*read_func)(char *), void (*print_func)(char *data, uint16_t size)) {
+void cli_init(Cli_HandlerTypeDef_t *self, bool (*read_func)(char *), void (*print_func)(char *data, uint16_t size), bool Locked) {
 	self->read_char = read_func;
     self->print_string = print_func;
     self->pos=0;
     self->commandRunIndex=0;
     self->processInputWhileRunning = false;
-    self->state=WAITING;
+    if(Locked){
+    	self->state=LOCKED;
+    	cli_register_command("exit", exit_cli);
+    }
+
     strcpy(self->current_path , "/");
 
 }

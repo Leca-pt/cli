@@ -36,7 +36,10 @@ typedef enum cli_state{
 	WAITING=0,
 	EXECUTE_COMMAND,
 	EXECUTING,
-	DONE_EXECUTING
+	DONE_EXECUTING,
+	LOCKED,
+	LOGIN_PROMPT,
+	PSW_PROMPT
 }Cli_state_e;
 
 typedef enum cli_log_level{
@@ -91,6 +94,8 @@ typedef struct _Cli_HandlerTypeDef{
 	bool processInputWhileRunning;
 	Cli_state_e state;
 	char current_path[MAX_FILEPATH_SIZE];
+	char user[64];
+	char psw[64];
 }Cli_HandlerTypeDef_t;
 
 
@@ -105,7 +110,7 @@ typedef struct _Command{
 // Function prototypes
 void cli_register_command(const char *name, Cli_state_e (*command)(Cli_HandlerTypeDef_t *cli, int argc, char **argv));
 
-void cli_init(Cli_HandlerTypeDef_t *self, bool (*read_func)(char *), void (*print_func)(char *data, uint16_t size));
+void cli_init(Cli_HandlerTypeDef_t *self, bool (*read_func)(char *), void (*print_func)(char *data, uint16_t size), bool Locked);
 
 void cli_start(Cli_HandlerTypeDef_t *self);
 

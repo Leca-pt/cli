@@ -55,7 +55,7 @@ static void execute_command(Cli_HandlerTypeDef_t *self, const char *line) {
             return;
         }
     }
-    self->print_string("Command not found\r\n", strlen("Command not found\r\n"));
+    cli_printf(self,"Command not found\r\n");
     self->state=DONE_EXECUTING;
 }
 
@@ -68,7 +68,7 @@ static void process_input(Cli_HandlerTypeDef_t *self) {
 
     if (c == '\n' || c == '\r') {
     	self->line[self->pos] = '\0';
-        self->print_string("\r\n",2);
+    	cli_printf(self,"\r\n");
         if(self->pos>0){
 
         	switch (self->state) {
@@ -93,13 +93,13 @@ static void process_input(Cli_HandlerTypeDef_t *self) {
     } else if (c == '\b' || c == 127) { // back space
         if (self->pos > 0) {
         	self->pos--;
-            self->print_string("\b \b",strlen("\b \b"));
+        	cli_printf(self,"\b \b");
         }
     } else if (c >= 32 && c <= 126) { // Printable characters
         if (self->pos < BUFFER_SIZE - 1) {
         	self->line[self->pos++] = c;
         	if(self->state != PSW_PROMPT){
-        		self->print_string(&c,1);
+        		self->print_string((uint8_t *)&c,1);
         	}
 
         }
@@ -179,7 +179,7 @@ void cli_run(Cli_HandlerTypeDef_t *self){
 		}
 }
 
-void cli_init(Cli_HandlerTypeDef_t *self, bool (*read_func)(char *), void (*print_func)(char *data, uint16_t size), bool Locked) {
+void cli_init(Cli_HandlerTypeDef_t *self, bool (*read_func)(char *), void (*print_func)(uint8_t *data, uint16_t size), bool Locked) {
 	self->read_char = read_func;
     self->print_string = print_func;
     self->pos=0;
@@ -229,24 +229,38 @@ bool cli_ctrlC(Cli_HandlerTypeDef_t *self){
 	return true;
 }
 
+int cli_write(Cli_HandlerTypeDef_t *self, uint8_t *data, size_t size){
+	if(self==NULL)return -1;
+	self->print_string(data, size);
+
+	return 0;
+}
+
+int cli_writeByte(Cli_HandlerTypeDef_t *self, uint8_t byte){
+	if(self==NULL)return -1;
+	self->print_string(&byte, 1);
+
+	return 0;
+}
+
 int cli_printf(Cli_HandlerTypeDef_t *self,const char * format, ...){
 	va_list args;
 	va_start(args, format);
 
 	// Use snprintf for limited formatting
 	int result = vsnprintf(self->print_Buffer, BUFFER_SIZE-1, format, args);
-	self->print_string(self->print_Buffer, strlen(self->print_Buffer));
+	self->print_string((uint8_t *)self->print_Buffer, strlen(self->print_Buffer));
 
 	va_end(args);
 	return result; // Return the number of characters written (excluding null terminator)
 }
 
 void cli_hideCursor(Cli_HandlerTypeDef_t *self){
-	self->print_string("\033[?25l", strlen("\033[?25l"));
+	cli_printf(self,"\033[?25l");
 }
 
 void cli_showCursor(Cli_HandlerTypeDef_t *self){
-	self->print_string("\033[?25h", strlen("\033[?25h"));
+	cli_printf(self,"\033[?25h");
 
 }
 
@@ -263,33 +277,33 @@ int cli_logMessage(Cli_HandlerTypeDef_t *self, Cli_logLevel_e level,const char *
 		case LOG_LEVEL_DEBUG:
 			if(cliDEBUG){
 				cli_setStyle(self, CLI_Magenta);
-				self->print_string(DEBUG_HEADER, strlen(DEBUG_HEADER));
+				cli_printf(self,DEBUG_HEADER);
 				cli_setStyle(self, CLI_Reset);
 				result = vsnprintf(self->print_Buffer, BUFFER_SIZE-1, format, args);
-				self->print_string(self->print_Buffer, strlen(self->print_Buffer));
+				self->print_string((uint8_t *)self->print_Buffer, strlen(self->print_Buffer));
 				return result;
 			}
 			return 0;
 			break;
 		case LOG_LEVEL_ERROR:
 			cli_setStyle(self, CLI_Red);
-			self->print_string(ERROR_HEADER, strlen(ERROR_HEADER));
+			cli_printf(self,ERROR_HEADER);
 			break;
 		case LOG_LEVEL_INFO:
 			cli_setStyle(self, CLI_Cyan);
-			self->print_string(INFO_HEADER, strlen(INFO_HEADER));
+			cli_printf(self,INFO_HEADER);
 			break;
 		case LOG_LEVEL_WARNING:
 			cli_setStyle(self, CLI_Yellow);
-			self->print_string(WARNING_HEADER, strlen(WARNING_HEADER));
+			cli_printf(self,WARNING_HEADER);
 			break;
 		case LOG_LEVEL_FAIL:
 			cli_setStyle(self, CLI_Red);
-			self->print_string(FAIL_HEADER, strlen(FAIL_HEADER));
+			cli_printf(self,FAIL_HEADER);
 			break;
 		case LOG_LEVEL_OK:
 			cli_setStyle(self, CLI_Green);
-			self->print_string(OK_HEADER, strlen(OK_HEADER));
+			cli_printf(self,OK_HEADER);
 			break;
 		default:
 			break;
@@ -297,7 +311,7 @@ int cli_logMessage(Cli_HandlerTypeDef_t *self, Cli_logLevel_e level,const char *
 
 	cli_setStyle(self, CLI_Reset);
 	result = vsnprintf(self->print_Buffer, BUFFER_SIZE-1, format, args);
-	self->print_string(self->print_Buffer, strlen(self->print_Buffer));
+	self->print_string((uint8_t *)self->print_Buffer, strlen(self->print_Buffer));
 
 	va_end(args);
 	return result;
@@ -313,7 +327,7 @@ int cli_styled_printf(Cli_HandlerTypeDef_t *self, Cli_style_e style, const char 
 
 	// Use snprintf for limited formatting
 	int result = vsnprintf(self->print_Buffer, BUFFER_SIZE-1, format, args);
-	self->print_string(self->print_Buffer, strlen(self->print_Buffer));
+	self->print_string((uint8_t *)self->print_Buffer, strlen(self->print_Buffer));
 
 	va_end(args);
 	cli_setStyle(self, CLI_Reset);

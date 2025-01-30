@@ -219,7 +219,7 @@ Cli_state_e cat_command(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
     char buffer[128];
     lfs_ssize_t read_size;
     while ((read_size = lfs_file_read(&lfs, &file, buffer, sizeof(buffer))) > 0) {
-        cli->print_string(buffer, read_size);
+        cli->print_string((uint8_t *)buffer, read_size);
     }
 
     if (read_size < 0) {

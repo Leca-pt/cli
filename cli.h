@@ -77,7 +77,7 @@ typedef enum{
 
 // Function pointers for reading a character and printing a string
 typedef bool (*read_char)(char *data);
-typedef void (*print_string)(char *data, uint16_t size);
+typedef void (*print_string)(uint8_t *data, uint16_t size);
 
 
 
@@ -110,7 +110,7 @@ typedef struct _Command{
 // Function prototypes
 void cli_register_command(const char *name, Cli_state_e (*command)(Cli_HandlerTypeDef_t *cli, int argc, char **argv));
 
-void cli_init(Cli_HandlerTypeDef_t *self, bool (*read_func)(char *), void (*print_func)(char *data, uint16_t size), bool Locked);
+void cli_init(Cli_HandlerTypeDef_t *self, bool (*read_func)(char *), void (*print_func)(uint8_t *data, uint16_t size), bool Locked);
 
 void cli_start(Cli_HandlerTypeDef_t *self);
 
@@ -121,6 +121,10 @@ char * cli_getUserInput(Cli_HandlerTypeDef_t *self);
 bool cli_escape(Cli_HandlerTypeDef_t *self);
 
 bool cli_ctrlC(Cli_HandlerTypeDef_t *self);
+
+int cli_write(Cli_HandlerTypeDef_t *self, uint8_t *data, size_t size);
+
+int cli_writeByte(Cli_HandlerTypeDef_t *self, uint8_t byte);
 
 int cli_printf(Cli_HandlerTypeDef_t *self,const char * format, ...);
 

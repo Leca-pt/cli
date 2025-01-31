@@ -41,7 +41,7 @@ Cli_state_e move_file(Cli_HandlerTypeDef_t *cli, int argc, char **argv);
 
 Cli_state_e copy_file(Cli_HandlerTypeDef_t *cli, int argc, char **argv);
 
-Cli_state_e copy_file(Cli_HandlerTypeDef_t *cli, int argc, char **argv);
+Cli_state_e format_fileSystem(Cli_HandlerTypeDef_t *cli, int argc, char **argv);
 
 void cli_print_lfs_error(Cli_HandlerTypeDef_t *cli,int err);
 

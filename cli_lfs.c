@@ -641,3 +641,104 @@ Cli_state_e copy_file(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
 }
 
 
+Cli_state_e format_fileSystem(Cli_HandlerTypeDef_t *cli, int argc, char **argv){
+
+
+	switch (CmdProgress) {
+		case 0:
+			if(argc <2){
+				cli_printf(cli, "Usage: format <disk> %i\r\n", argc);
+				return CmdProgress=3;
+			}
+
+			if((argc == 3) && (strcmp(argv[2],"-y")==0)){
+				cli_printf(cli, "Formating %s...\r\n", argv[1]);
+//				lfs_unmount(&lfs);
+//				lfs_format(&lfs, cfg);
+				cli_printf(cli, "format done\r\n");
+				CmdProgress=3;
+			}
+			CmdProgress++;
+			break;
+		case 1:
+			cli_printf(cli, "Are you sure? (y/n)");
+			CmdProgress++;
+			break;
+		case 2:
+			char *input = cli_getUserInput(cli);
+			if(input!=NULL){
+				if((strcmp(input,"y")==0) || (strcmp(input, "Y")==0)){
+					cli_printf(cli, "format done\r\n");
+					CmdProgress=3;
+				}
+				if((strcmp(input,"n")==0) || (strcmp(input, "N")==0)){
+					cli_printf(cli, "format cancel\r\n");
+					CmdProgress=3;
+				}
+				CmdProgress++;
+			}
+			break;
+		case 3:
+			CmdProgress=0;
+			return DONE_EXECUTING;
+			break;
+		default:
+			return DONE_EXECUTING;
+			break;
+	}
+
+	return EXECUTING;
+}
+
+void cli_print_lfs_error(Cli_HandlerTypeDef_t *cli,int err) {
+	switch (err) {
+	case LFS_ERR_OK:
+		cli_logMessage(cli, LOG_LEVEL_INFO, "No error\r\n");
+		break;
+	case LFS_ERR_IO:
+		cli_logMessage(cli, LOG_LEVEL_ERROR,"Error during device operation\r\n");
+		break;
+	case LFS_ERR_CORRUPT:
+		cli_logMessage(cli, LOG_LEVEL_ERROR,"Corrupted\r\n");
+		break;
+	case LFS_ERR_NOENT:
+		cli_logMessage(cli, LOG_LEVEL_WARNING,"No directory entry\r\n");
+		break;
+	case LFS_ERR_EXIST:
+		cli_logMessage(cli, LOG_LEVEL_WARNING,"Entry already exists\r\n");
+		break;
+	case LFS_ERR_NOTDIR:
+		cli_logMessage(cli, LOG_LEVEL_WARNING,"Entry is not a dir\r\n");
+		break;
+	case LFS_ERR_ISDIR:
+		cli_logMessage(cli, LOG_LEVEL_WARNING,"Entry is a dir\r\n");
+		break;
+	case LFS_ERR_NOTEMPTY:
+		cli_logMessage(cli, LOG_LEVEL_WARNING,"Dir is not empty\r\n");
+		break;
+	case LFS_ERR_BADF:
+		cli_logMessage(cli, LOG_LEVEL_WARNING,"Bad file number\r\n");
+		break;
+	case LFS_ERR_FBIG:
+		cli_logMessage(cli, LOG_LEVEL_WARNING,"File too large\r\n");
+		break;
+	case LFS_ERR_INVAL:
+		cli_logMessage(cli, LOG_LEVEL_WARNING,"Invalid parameter\r\n");
+		break;
+	case LFS_ERR_NOSPC:
+		cli_logMessage(cli, LOG_LEVEL_WARNING,"No space left on device\r\n");
+		break;
+	case LFS_ERR_NOMEM:
+		cli_logMessage(cli, LOG_LEVEL_WARNING,"No more memory available\r\n");
+		break;
+	case LFS_ERR_NOATTR:
+		cli_logMessage(cli, LOG_LEVEL_WARNING,"No data/attr available\r\n");
+		break;
+	case LFS_ERR_NAMETOOLONG:
+		cli_logMessage(cli, LOG_LEVEL_WARNING,"File name too long\r\n");
+		break;
+	default:
+		break;
+	}
+
+}

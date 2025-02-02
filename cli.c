@@ -196,7 +196,6 @@ void cli_init(Cli_HandlerTypeDef_t *self, bool (*read_func)(char *), void (*prin
 
 void cli_start(Cli_HandlerTypeDef_t *self) {
 	cli_printf(self, "%s>", self->current_path);
-//    self->print_string("> ",2);
 }
 
 char * cli_getUserInput(Cli_HandlerTypeDef_t *self){

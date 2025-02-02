@@ -9,7 +9,7 @@
 
 extern lfs_t lfs;
 ///char current_path[256] = "/";
-
+static uint8_t CmdProgress=0;
 // Helper function to normalize the path
 static void normalize_path(char *path) {
     char temp[256];

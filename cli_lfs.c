@@ -396,7 +396,6 @@ Cli_state_e rmdir_rec(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
     return DONE_EXECUTING;
 }
 
-
 // Function to make a directory using LittleFS
 Cli_state_e mkdir(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
     if (argc < 2) {

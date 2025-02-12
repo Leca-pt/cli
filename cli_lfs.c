@@ -268,35 +268,40 @@ Cli_state_e rm_command(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
 // Function to list a directory using LittleFS
 Cli_state_e lfs_ls(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
 
-	lfs_dir_t dir;
+	//lfs_dir_t dir;
+	DiskDir dir;
+
 	char *current_path=cli_getCurrentPath(cli);
 
-    int err = lfs_dir_open(&lfs, &dir, current_path);
+    //int err = lfs_dir_open(&lfs, &dir, current_path);
+    int err = df_openDir(&dir, current_path);
     if (err) {
         return DONE_EXECUTING;
     }
 
-    struct lfs_info info;
+    //struct lfs_info info;
+    DiskFileINFO info;
     while (true) {
-        int res = lfs_dir_read(&lfs, &dir, &info);
+        //int res = lfs_dir_read(&lfs, &dir, &info);
+        int res = df_readdir(&dir, &info);
         if (res < 0) {
             return DONE_EXECUTING;
         }
 
-        if (res == 0) {
+        if (res != 0 || info.name[0]==0) {
             break;
         }
 
         switch (info.type) {
-            case LFS_TYPE_REG: cli_printf(cli,"reg "); break;
-            case LFS_TYPE_DIR: cli_printf(cli,"dir "); break;
+            case DF_ARC: cli_printf(cli,"reg "); break;
+            case DF_DIR: cli_printf(cli,"dir "); break;
             default:           cli_printf(cli,"?   "); break;
         }
 
         static const char *prefixes[] = {"", "K", "M", "G"};
         for (int i = sizeof(prefixes)/sizeof(prefixes[0])-1; i >= 0; i--) {
-            if (info.size >= (1 << 10*i)-1) {
-            	cli_printf(cli,"%*lu%sB ", 4-(i != 0), info.size >> 10*i, prefixes[i]);
+            if (info.fsize >= (1 << 10*i)-1) {
+            	cli_printf(cli,"%*lu%sB ", 4-(i != 0), info.fsize >> 10*i, prefixes[i]);
                break;
             }
         }
@@ -304,7 +309,8 @@ Cli_state_e lfs_ls(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
         cli_printf(cli,"%s\r\n", info.name);
     }
 
-    err = lfs_dir_close(&lfs, &dir);
+    //err = lfs_dir_close(&lfs, &dir);
+    err = df_closedir(&dir);
     if (err) {
         return DONE_EXECUTING;
     }
@@ -436,15 +442,21 @@ Cli_state_e change_dir(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
         return DONE_EXECUTING;
     }
 
-    lfs_dir_t dir;
+//    lfs_dir_t dir;
+    DiskDir dir;
     const char *path = argv[1];
     char new_path[257]={0};
     char *current_path=cli_getCurrentPath(cli);
+
 
     // Handle absolute and relative paths
     if (path[0] == '/') {
         // Absolute path
         strncpy(new_path, path, sizeof(new_path) - 1);
+    }else if(path[0]=='d'){
+    	strncpy(new_path, "d:/",sizeof(new_path) - 1 );
+    }else if(path[0]=='c'){
+    	strncpy(new_path, "c:/",sizeof(new_path) - 1 );
     } else {
         // Relative path
         snprintf(new_path, sizeof(new_path), "%s/%s", current_path, path);
@@ -454,7 +466,8 @@ Cli_state_e change_dir(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
     normalize_path(new_path);
 
     // Check if the directory exists
-    int err = lfs_dir_open(&lfs, &dir, new_path);
+//    int err = lfs_dir_open(&lfs, &dir, new_path);
+    int err = df_openDir(&dir, new_path);
     if (err) {
     	cli_printf(cli,"Error opening directory '%s': %d\r\n", new_path, err);
         //printf("Error opening directory '%s': %d\r\n", new_path, err);
@@ -462,7 +475,8 @@ Cli_state_e change_dir(Cli_HandlerTypeDef_t *cli, int argc, char **argv) {
     }
 
     // Close the directory (just checking its existence)
-    lfs_dir_close(&lfs, &dir);
+//    lfs_dir_close(&lfs, &dir);
+    df_closedir(&dir);
 
     // Update the current path
     strncpy(current_path, new_path, MAX_FILEPATH_SIZE-1);

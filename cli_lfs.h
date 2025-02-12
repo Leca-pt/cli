@@ -10,11 +10,11 @@
 
 #include "cli.h"
 #include "lfs.h"
+#include "DiskManager.h"
 
 
 #define COPY_BUFFER_SIZE 64
 
-char * get_currentPath(void);
 
 Cli_state_e pwd_command(Cli_HandlerTypeDef_t *cli, int argc, char **argv);
 // Echo command function

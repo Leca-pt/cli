@@ -190,7 +190,7 @@ void cli_init(Cli_HandlerTypeDef_t *self, bool (*read_func)(char *), void (*prin
     	cli_register_command("exit", exit_cli);
     }
 
-    strcpy(self->current_path , "/");
+    strcpy(self->current_path , "c:/");
 
 }
 

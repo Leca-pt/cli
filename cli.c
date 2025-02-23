@@ -9,6 +9,7 @@
 #include "cli.h"
 
 
+
 // Command array and count
 static Command commands[MAX_COMMANDS];
 static int command_count = 0;
@@ -188,6 +189,8 @@ void cli_init(Cli_HandlerTypeDef_t *self, bool (*read_func)(char *), void (*prin
     if(Locked){
     	self->state=LOCKED;
     	cli_register_command("exit", exit_cli);
+    }else{
+    	self->state = DONE_EXECUTING;
     }
 
     strcpy(self->current_path , "c:/");
@@ -195,7 +198,12 @@ void cli_init(Cli_HandlerTypeDef_t *self, bool (*read_func)(char *), void (*prin
 }
 
 void cli_start(Cli_HandlerTypeDef_t *self) {
-	cli_printf(self, "%s>", self->current_path);
+
+#ifdef CLI_USE_DISKMANAGER
+	cli_printf(self, "%s>", Diskmanager_getWorkingDirectoryPTR());
+#else
+	cli_printf(self, "CLI/>");
+#endif
 }
 
 char * cli_getUserInput(Cli_HandlerTypeDef_t *self){

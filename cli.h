@@ -14,6 +14,9 @@
 #include <string.h>
 #include <stdbool.h>
 
+#ifdef CLI_USE_DISKMANAGER
+	#include "DiskManager.h"
+#endif
 
 
 // Maximum number of commands and arguments

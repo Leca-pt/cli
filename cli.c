@@ -15,6 +15,62 @@ static Command commands[MAX_COMMANDS];
 static int command_count = 0;
 static bool cliDEBUG = true;
 
+static void add_commandToList(Cli_HandlerTypeDef_t *self, const char *command){
+
+	for(int i=MAX_LAST_COMMAND_LIST_SIZE-1;i>=1;i--){
+		memcpy(self->lastCommandList[i], self->lastCommandList[i-1], sizeof(self->lastCommandList[i]));
+	}
+
+//	memcpy(self->lastCommandList[1],self->lastCommandList[0], sizeof(self->lastCommandList)-sizeof(self->lastCommandList[0]));
+
+	strncpy(self->lastCommandList[0], command, sizeof(self->lastCommandList[0]));
+
+	self->lastCommandCount++;
+	if(self->lastCommandCount >= MAX_LAST_COMMAND_LIST_SIZE){
+		self->lastCommandCount = MAX_LAST_COMMAND_LIST_SIZE;
+	}
+
+}
+
+static void load_command(Cli_HandlerTypeDef_t *self){
+	cli_printf(self, "%s", self->lastCommandList[self->lastCommandIndex]);
+	strcpy(self->line,self->lastCommandList[self->lastCommandIndex]);
+	self->pos = strlen(self->lastCommandList[self->lastCommandIndex]);
+	return;
+}
+
+static void clear_command_input(Cli_HandlerTypeDef_t *self){
+	while(self->pos!=0){
+		self->pos--;
+		cli_printf(self,"\b \b");
+	}
+}
+
+static void load_nextCommand(Cli_HandlerTypeDef_t *self){
+	clear_command_input(self);
+
+	self->lastCommandIndex++;
+	if(self->lastCommandIndex >= self->lastCommandCount){
+		self->lastCommandIndex = self->lastCommandCount-1;
+	}
+	if(self->lastCommandIndex >=0){
+		load_command(self);
+	}
+	return;
+}
+
+static void load_prevCommand(Cli_HandlerTypeDef_t *self){
+	clear_command_input(self);
+
+	self->lastCommandIndex--;
+	if(self->lastCommandIndex >= 0){
+		load_command(self);
+	}
+	if(self->lastCommandIndex <= -1){
+		self->lastCommandIndex = -1;
+	}
+	return;
+}
 
 static void execute_command(Cli_HandlerTypeDef_t *self, const char *line) {
     char args[MAX_ARGS][MAX_ARG_LEN];
@@ -70,10 +126,12 @@ static void process_input(Cli_HandlerTypeDef_t *self) {
     if (c == '\n' || c == '\r') {
     	self->line[self->pos] = '\0';
     	cli_printf(self,"\r\n");
+    	self->lastCommandIndex = -1; //reset the command list index to -1 no command selected
         if(self->pos>0){
 
         	switch (self->state) {
 				case WAITING:
+
 					self->state=EXECUTE_COMMAND;
 					break;
 				case EXECUTING:
@@ -96,6 +154,22 @@ static void process_input(Cli_HandlerTypeDef_t *self) {
         	self->pos--;
         	cli_printf(self,"\b \b");
         }
+    }else if(c == 0x1B){ // escape sequence received
+    	self->read_char(&c);
+    	if (c == '[') {
+    		self->read_char(&c);
+    		if (c == 'A') { // KEY UP
+    			load_nextCommand(self);
+			}else if (c == 'B'){ // KEY DOWN
+				load_prevCommand(self);
+			}else if (c == 'C'){
+				// Key RIGHT
+				//TODO: move cursor right in the input
+			}else if (c == 'D'){
+				// Key LEFT
+				//TODO: move the cursor left in the input
+			}
+    	}
     } else if (c >= 32 && c <= 126) { // Printable characters
         if (self->pos < BUFFER_SIZE - 1) {
         	self->line[self->pos++] = c;
@@ -159,6 +233,7 @@ void cli_run(Cli_HandlerTypeDef_t *self){
 				break;
 			case EXECUTE_COMMAND:
 	        	execute_command(self,self->line);
+	        	add_commandToList(self, self->line);
 	        	memset(self->line,'\0',BUFFER_SIZE);
 				break;
 			case EXECUTING:

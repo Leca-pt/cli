@@ -33,7 +33,8 @@
 #define	FAIL_HEADER		"[FAIL]"
 #define	OK_HEADER		"[OK]"
 
-#define	MAX_FILEPATH_SIZE 256
+#define	MAX_FILEPATH_SIZE 			256
+#define MAX_LAST_COMMAND_LIST_SIZE 	10
 
 typedef enum cli_state{
 	WAITING=0,
@@ -99,6 +100,9 @@ typedef struct _Cli_HandlerTypeDef{
 	char current_path[MAX_FILEPATH_SIZE];
 	char user[64];
 	char psw[64];
+	char lastCommandList[MAX_LAST_COMMAND_LIST_SIZE][64];
+	uint8_t lastCommandCount;
+	int lastCommandIndex;
 }Cli_HandlerTypeDef_t;
 
 

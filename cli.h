@@ -23,7 +23,7 @@
 #define MAX_COMMANDS 100
 #define MAX_ARGS 100
 #define MAX_ARG_LEN 128
-#define BUFFER_SIZE 512
+#define BUFFER_SIZE 1024
 
 
 #define	DEBUG_HEADER	"[DEBUG]"
